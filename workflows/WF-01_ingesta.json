@@ -11,8 +11,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -1280,
-        -48
+        -1008,
+        -64
       ],
       "id": "e4b941f3-97e4-4507-be8e-fa0cca7f7b64",
       "name": "Webhook",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1040,
-        -192
+        -768,
+        -208
       ],
       "id": "f994bc04-7d71-41cc-b6a5-7d05cbb86480",
       "name": "Hash del token"
@@ -42,8 +42,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        224,
-        -112
+        1296,
+        -128
       ],
       "id": "3457ba05-1f7c-42f6-bfc3-304020703461",
       "name": "Respuesta"
@@ -57,8 +57,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -832,
-        -192
+        -560,
+        -208
       ],
       "id": "0a67c014-0e33-4bc8-a056-1513cd698e93",
       "name": "Verifica token",
@@ -99,8 +99,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -624,
-        -192
+        -352,
+        -208
       ],
       "id": "05743395-2d2d-41dd-8e5d-8da07a17631f",
       "name": "¿Token válido?"
@@ -112,8 +112,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -176,
-        128
+        96,
+        48
       ],
       "id": "2d678548-826b-403d-8bea-ff3713e4c3af",
       "name": "Rechazo 401"
@@ -145,8 +145,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -400,
-        -288
+        -128,
+        -304
       ],
       "id": "6add23aa-828a-4f94-a896-00b7ca8b1332",
       "name": "¿Rol autorizado?"
@@ -158,11 +158,126 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -192,
-        -96
+        96,
+        -128
       ],
       "id": "71ecfc6d-a1f1-42b3-b98a-3f21779bc544",
       "name": "Rechazo 403"
+    },
+    {
+      "parameters": {
+        "jsCode": "// valida los datos de la solicitud antes de tocar la base.\n// en guatemala el dpi son 13 digitos y el telefono 8,\n// empezando entre 2 y 8.\nconst datos = $('Hash del token').first().json.datos || {};\nconst errores = [];\n\nconst dpi = String(datos.dpi || '').trim();\nif (!/^\\d{13}$/.test(dpi)) {\n  errores.push('El DPI debe tener exactamente 13 digitos');\n}\n\nconst telefono = String(datos.telefono || '').trim();\nif (telefono && !/^[2-8]\\d{7}$/.test(telefono)) {\n  errores.push('El telefono debe tener 8 digitos y empezar entre 2 y 8');\n}\n\nconst correo = String(datos.correo || '').trim();\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(correo)) {\n  errores.push('El correo no tiene un formato valido');\n}\n\n// la fecha preferida no puede quedar en el pasado\nconst hoy = new Date();\nhoy.setHours(0, 0, 0, 0);\nconst fechaPref = new Date(String(datos.fecha_preferida) + 'T00:00:00');\nif (isNaN(fechaPref.getTime())) {\n  errores.push('La fecha preferida no es una fecha valida');\n} else if (fechaPref < hoy) {\n  errores.push('La fecha preferida no puede estar en el pasado');\n}\n\nconst tipos = ['urgencia', 'control', 'general'];\nif (!tipos.includes(datos.tipo_consulta)) {\n  errores.push('El tipo de consulta debe ser urgencia, control o general');\n}\n\nfor (const campo of ['nombre', 'apellido', 'fecha_nacimiento']) {\n  if (!String(datos[campo] || '').trim()) {\n    errores.push('Falta el campo ' + campo);\n  }\n}\n\n// el dpi se enmascara para que nunca aparezca completo en logs\nconst dpiEnmascarado = dpi.length >= 4 ? '*'.repeat(9) + dpi.slice(-4) : '****';\n\nreturn [{\n  json: {\n    valido: errores.length === 0,\n    errores: errores,\n    rol: $json.rol,\n    dpi_enmascarado: dpiEnmascarado,\n    datos: datos\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -320
+      ],
+      "id": "4216f05f-f383-4e37-87ca-86ab58c46ffa",
+      "name": "Valida datos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9fc822c6-1eca-4fe9-8964-5916682f91e5",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        304,
+        -416
+      ],
+      "id": "573c93ac-c1b4-40c8-8dfa-ffeb55d3a564",
+      "name": "¿Datos válidos?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// los datos no pasaron la validacion.\n// se devuelve el detalle para que el emisor sepa que corregir.\nreturn [{\n  json: {\n    codigo: 400,\n    estado: 'rechazado',\n    mensaje: 'Datos invalidos',\n    errores: $json.errores\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        -240
+      ],
+      "id": "46c94724-8ffc-4f8a-a139-230fee703f3c",
+      "name": "Rechazo 400"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values (\n    encode(sha256(('sigac:' || '{{ $json.datos.dpi }}')::bytea), 'hex'),\n    encode(sha256('{{ $json.datos.dpi }}'::bytea), 'hex'),\n    '{{ $json.datos.nombre }}',\n    '{{ $json.datos.apellido }}',\n    encode(sha256('{{ $json.datos.telefono }}'::bytea), 'hex'),\n    '{{ $json.datos.fecha_nacimiento }}',\n    '{{ $json.datos.correo }}'\n  )\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  returning id\n)\ninsert into solicitud_cita (id_paciente, tipo_consulta, motivo, fecha_preferida)\nselect p.id, '{{ $json.datos.tipo_consulta }}', '{{ $json.datos.motivo }}', '{{ $json.datos.fecha_preferida }}'\nfrom p\nreturning id as id_solicitud, id_paciente, estado;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        528,
+        -480
+      ],
+      "id": "16b501c7-1a98-4c8f-9abc-b7ab9fcc810d",
+      "name": "Guarda solicitud",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bitacora_auditoria\n  (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\nselect\n  'solicitud_cita',\n  {{ $json.id_solicitud }},\n  'insert',\n  '{{ $('Valida datos').first().json.rol }}',\n  'DPI {{ $('Valida datos').first().json.dpi_enmascarado }}',\n  b.hash_actual,\n  encode(sha256((b.hash_actual || 'solicitud_cita' || '{{ $json.id_solicitud }}')::bytea), 'hex')\nfrom bitacora_auditoria b\norder by b.id desc\nlimit 1\nreturning id, hash_anterior, hash_actual;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        752,
+        -480
+      ],
+      "id": "38befab2-1978-4fb3-956c-87e4a2d31bed",
+      "name": "Registra bitacora",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// solicitud registrada y auditada.\n// se devuelve el id para que el emisor pueda dar seguimiento.\nreturn [{\n  json: {\n    codigo: 201,\n    estado: 'registrado',\n    mensaje: 'Solicitud de cita registrada',\n    id_solicitud: $('Guarda solicitud').first().json.id_solicitud,\n    estado_solicitud: $('Guarda solicitud').first().json.estado,\n    hash_auditoria: $json.hash_actual\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -480
+      ],
+      "id": "209eceeb-b8b2-4a88-b627-2eb43bb1da59",
+      "name": "Registro exitoso"
     }
   ],
   "pinData": {},
@@ -238,7 +353,7 @@
       "main": [
         [
           {
-            "node": "Respuesta",
+            "node": "Valida datos",
             "type": "main",
             "index": 0
           }
@@ -262,15 +377,88 @@
           }
         ]
       ]
+    },
+    "Valida datos": {
+      "main": [
+        [
+          {
+            "node": "¿Datos válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos válidos?": {
+      "main": [
+        [
+          {
+            "node": "Guarda solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 400": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guarda solicitud": {
+      "main": [
+        [
+          {
+            "node": "Registra bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registra bitacora": {
+      "main": [
+        [
+          {
+            "node": "Registro exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registro exitoso": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "e3f15510-5f8f-47c6-8947-22f81fd57436",
+  "versionId": "7ef184c7-b860-44f1-8a33-f8424cb1d661",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
