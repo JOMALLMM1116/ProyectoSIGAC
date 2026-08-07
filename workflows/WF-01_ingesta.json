@@ -11,8 +11,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -560,
-        -64
+        -1280,
+        -48
       ],
       "id": "e4b941f3-97e4-4507-be8e-fa0cca7f7b64",
       "name": "Webhook",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -272,
-        -176
+        -1040,
+        -192
       ],
       "id": "f994bc04-7d71-41cc-b6a5-7d05cbb86480",
       "name": "Hash del token"
@@ -35,13 +35,15 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "responseCode": "={{$json.codigo || 200}}"
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        240,
-        -192
+        224,
+        -112
       ],
       "id": "3457ba05-1f7c-42f6-bfc3-304020703461",
       "name": "Respuesta"
@@ -55,17 +57,112 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -48,
-        -176
+        -832,
+        -192
       ],
       "id": "0a67c014-0e33-4bc8-a056-1513cd698e93",
       "name": "Verifica token",
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "SboKk4ZMcKtMLxBt",
           "name": "SIGAC PostgreSQL"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "408a8636-9222-4c0c-807b-4f484f9c2503",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": "={{ false }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -624,
+        -192
+      ],
+      "id": "05743395-2d2d-41dd-8e5d-8da07a17631f",
+      "name": "¿Token válido?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// token ausente o invalido.\n// el mensaje es generico a proposito: no se revela si el token\n// existe pero esta inactivo, ni si el rol es incorrecto.\nreturn [{\n  json: {\n    codigo: 401,\n    estado: 'rechazado',\n    mensaje: 'Token ausente o invalido'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        128
+      ],
+      "id": "2d678548-826b-403d-8bea-ff3713e4c3af",
+      "name": "Rechazo 401"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dddd79e6-8cec-4a28-95b7-842df1036b78",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "recepcion",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -400,
+        -288
+      ],
+      "id": "6add23aa-828a-4f94-a896-00b7ca8b1332",
+      "name": "¿Rol autorizado?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// el token es valido pero el rol no tiene permiso para\n// crear citas. solo recepcion puede hacerlo.\nreturn [{\n  json: {\n    codigo: 403,\n    estado: 'rechazado',\n    mensaje: 'El rol no autoriza esta operacion'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        -96
+      ],
+      "id": "71ecfc6d-a1f1-42b3-b98a-3f21779bc544",
+      "name": "Rechazo 403"
     }
   ],
   "pinData": {},
@@ -101,6 +198,64 @@
       "main": [
         [
           {
+            "node": "¿Token válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Rol autorizado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 401": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Rol autorizado?": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 403": {
+      "main": [
+        [
+          {
             "node": "Respuesta",
             "type": "main",
             "index": 0
@@ -115,7 +270,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "db3a9237-7797-4871-9152-4f8c8b587bfc",
+  "versionId": "e3f15510-5f8f-47c6-8947-22f81fd57436",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

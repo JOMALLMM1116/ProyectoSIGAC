@@ -15,6 +15,13 @@ services:
       - sigac_postgres_data:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: sigac-mailhog
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: sigac-n8n
@@ -37,6 +44,7 @@ services:
       - sigac_n8n_data:/home/node/.n8n
     depends_on:
       - postgres
+      - mailhog
 
 volumes:
   sigac_n8n_data:
