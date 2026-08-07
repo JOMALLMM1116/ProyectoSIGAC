@@ -3,9 +3,7 @@
 Automatización del ciclo de solicitud, validación y registro de citas clínicas
 mediante n8n, en un entorno **100 % local** basado en contenedores.
 
-**Análisis de Sistemas II** — Código 0902-037 — Ing. Edgar Raúl Molina Rey
-Universidad Mariano Gálvez de Guatemala, Campus Cobán
-José Manuel Maquin Leal — Carné 4090-22-3506
+**Análisis de Sistemas II**
 
 ---
 
