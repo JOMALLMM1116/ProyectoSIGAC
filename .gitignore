@@ -1,0 +1,14 @@
+# Secretos — NUNCA se versionan
+.env
+
+# Artefactos generados
+reportes/*.pdf
+evidencias/*.tmp
+*.log
+
+# Dependencias
+node_modules/
+
+# Sistema
+.DS_Store
+Thumbs.db
