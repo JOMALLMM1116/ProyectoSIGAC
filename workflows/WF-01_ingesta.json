@@ -456,7 +456,10 @@
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "callerPolicy": "workflowsFromSameOwner"
   },
   "versionId": "7ef184c7-b860-44f1-8a33-f8424cb1d661",
   "meta": {

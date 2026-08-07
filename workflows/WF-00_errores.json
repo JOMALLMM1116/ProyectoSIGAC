@@ -1,0 +1,100 @@
+{
+  "name": "WF-00 Manejador de errores",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1b092ce5-5938-4899-af0b-35a5fb71492d",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into log_errores (workflow, nodo, mensaje, payload_enmascarado, severidad)\nvalues (\n  '{{ $json.workflow.name }}',\n  '{{ $json.execution?.lastNodeExecuted || \"desconocido\" }}',\n  '{{ ($json.execution?.error?.message || \"error no especificado\").replace(/'/g, \"\") }}',\n  'ejecucion {{ $json.execution?.id }}',\n  'alta'\n)\nreturning id, workflow, nodo, severidad;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "248ff3d2-0f36-4560-b4cf-9a151b265158",
+      "name": "Registra error",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "\talertas@sigac.local",
+        "toEmail": "\tadmin@sigac.local",
+        "subject": "=[SIGAC] Error en {{ $json.workflow }}",
+        "html": "=<p>Se registro un error de severidad alta.</p>\n<ul>\n  <li><b>Workflow:</b> {{ $json.workflow }}</li>\n  <li><b>Nodo:</b> {{ $json.nodo }}</li>\n  <li><b>Registro:</b> {{ $json.id }}</li>\n</ul>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "4040e8cd-e485-44c2-8e99-a534f4622674",
+      "name": "Alerta al administrador",
+      "webhookId": "fefa268a-dc4d-41fc-b362-0ceec36c4e14",
+      "credentials": {
+        "smtp": {
+          "id": "QGUdpIidEOYJkElS",
+          "name": "SIGAC MailHog"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Registra error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registra error": {
+      "main": [
+        [
+          {
+            "node": "Alerta al administrador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5bb133c9-ed23-43ad-83a6-7b00b7b75c06",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
+  },
+  "nodeGroups": [],
+  "id": "YaUUbcxLe9az2HoG",
+  "tags": []
+}

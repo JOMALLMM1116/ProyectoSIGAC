@@ -384,10 +384,14 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "callerPolicy": "workflowsFromSameOwner"
   },
   "versionId": "e9cb4018-e0c9-4bd3-86a8-5c2d0a912230",
   "meta": {
