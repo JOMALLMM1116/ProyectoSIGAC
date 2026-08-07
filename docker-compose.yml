@@ -1,14 +1,25 @@
-# Etapa 1: n8n
-
 services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sigac-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: America/Guatemala
+    volumes:
+      - sigac_postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: sigac-n8n
     restart: unless-stopped
     ports:
-      # 127.0.0.1 limita el acceso a esta máquina:
-      # el puerto no queda expuesto a la red local.
       - "127.0.0.1:5678:5678"
     environment:
       N8N_HOST: localhost
@@ -19,11 +30,13 @@ services:
       GENERIC_TIMEZONE: America/Guatemala
       TZ: America/Guatemala
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_RUNNERS_ENABLED: "true"
     volumes:
       - sigac_n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
 
 volumes:
   sigac_n8n_data:
+  sigac_postgres_data:
