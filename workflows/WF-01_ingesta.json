@@ -42,8 +42,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1296,
-        -128
+        1440,
+        -144
       ],
       "id": "3457ba05-1f7c-42f6-bfc3-304020703461",
       "name": "Respuesta"
@@ -227,14 +227,14 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values (\n    encode(sha256(('sigac:' || '{{ $json.datos.dpi }}')::bytea), 'hex'),\n    encode(sha256('{{ $json.datos.dpi }}'::bytea), 'hex'),\n    '{{ $json.datos.nombre }}',\n    '{{ $json.datos.apellido }}',\n    encode(sha256('{{ $json.datos.telefono }}'::bytea), 'hex'),\n    '{{ $json.datos.fecha_nacimiento }}',\n    '{{ $json.datos.correo }}'\n  )\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  returning id\n)\ninsert into solicitud_cita (id_paciente, tipo_consulta, motivo, fecha_preferida)\nselect p.id, '{{ $json.datos.tipo_consulta }}', '{{ $json.datos.motivo }}', '{{ $json.datos.fecha_preferida }}'\nfrom p\nreturning id as id_solicitud, id_paciente, estado;",
+        "query": "with p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values (\n    '{{ $json.dpi_cifrado }}',\n    '{{ $json.dpi_huella }}',\n    '{{ $json.datos.nombre }}',\n    '{{ $json.datos.apellido }}',\n    '{{ $json.telefono_cifrado }}',\n    '{{ $json.datos.fecha_nacimiento }}',\n    '{{ $json.datos.correo }}'\n  )\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  returning id\n)\ninsert into solicitud_cita (id_paciente, tipo_consulta, motivo, fecha_preferida)\nselect p.id, '{{ $json.datos.tipo_consulta }}', '{{ $json.datos.motivo }}', '{{ $json.datos.fecha_preferida }}'\nfrom p\nreturning id as id_solicitud, id_paciente, estado;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        528,
-        -480
+        672,
+        -432
       ],
       "id": "16b501c7-1a98-4c8f-9abc-b7ab9fcc810d",
       "name": "Guarda solicitud",
@@ -254,8 +254,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        752,
-        -480
+        864,
+        -432
       ],
       "id": "38befab2-1978-4fb3-956c-87e4a2d31bed",
       "name": "Registra bitacora",
@@ -273,11 +273,25 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        976,
-        -480
+        1040,
+        -432
       ],
       "id": "209eceeb-b8b2-4a88-b627-2eb43bb1da59",
       "name": "Registro exitoso"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// cifra los campos sensibles con AES-256-GCM.\n// a diferencia de un hash, esto es reversible: WF-03 necesita\n// el telefono real para notificar al paciente.\n//\n// formato almacenado:  iv:textoCifrado:etiqueta\n// el iv es aleatorio en cada operacion, asi que dos cifrados del\n// mismo dato dan resultados distintos. por eso existe ademas\n// dpi_huella, que si es determinista y permite buscar.\nconst crypto = require('crypto');\n\nconst clave = Buffer.from($env.SIGAC_CLAVE_CIFRADO, 'hex');\nif (clave.length !== 32) {\n  throw new Error('SIGAC_CLAVE_CIFRADO debe ser de 32 bytes (64 caracteres hex)');\n}\n\nfunction cifrar(texto) {\n  if (!texto) return null;\n  const iv = crypto.randomBytes(12);\n  const cifrador = crypto.createCipheriv('aes-256-gcm', clave, iv);\n  const cifrado = Buffer.concat([cifrador.update(String(texto), 'utf8'), cifrador.final()]);\n  const etiqueta = cifrador.getAuthTag();\n  return [iv.toString('hex'), cifrado.toString('hex'), etiqueta.toString('hex')].join(':');\n}\n\nconst datos = $json.datos;\n\nreturn {\n  json: {\n    ...$json,\n    dpi_cifrado: cifrar(datos.dpi),\n    dpi_huella: crypto.createHash('sha256').update(String(datos.dpi)).digest('hex'),\n    telefono_cifrado: cifrar(datos.telefono)\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -432
+      ],
+      "id": "9b76cefe-70e9-4694-adcc-e15b1dd55607",
+      "name": "Cifra datos sensibles"
     }
   ],
   "pinData": {},
@@ -393,7 +407,7 @@
       "main": [
         [
           {
-            "node": "Guarda solicitud",
+            "node": "Cifra datos sensibles",
             "type": "main",
             "index": 0
           }
@@ -450,6 +464,17 @@
           }
         ]
       ]
+    },
+    "Cifra datos sensibles": {
+      "main": [
+        [
+          {
+            "node": "Guarda solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -461,7 +486,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "7ef184c7-b860-44f1-8a33-f8424cb1d661",
+  "versionId": "f9518a9a-6371-43d8-8411-4c1577b6147a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
