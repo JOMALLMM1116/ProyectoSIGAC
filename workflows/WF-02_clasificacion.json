@@ -14,8 +14,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        -720,
-        -64
+        -976,
+        -80
       ],
       "id": "a605106a-de7e-4f63-b4d6-a2aad2b51c2e",
       "name": "Schedule Trigger"
@@ -29,8 +29,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -544,
-        -64
+        -800,
+        -80
       ],
       "id": "ab2a86e7-9417-4748-8e3c-b8bf1eab0957",
       "name": "Lee pendientes",
@@ -127,22 +127,21 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -352,
-        -64
+        -608,
+        -80
       ],
       "id": "9d0422b9-d3fa-4a46-be22-da999c169b5f",
       "name": "Clasifica consulta"
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// la prioridad sale del tipo de consulta:\n// 1 es la mayor urgencia, 5 la menor.\nconst tipos = {\n  urgencia: 1,\n  control: 3,\n  general: 5\n};\n\nconst tipo = $json.tipo_consulta;\n\nreturn {\n  json: {\n    id_solicitud: $json.id,\n    id_paciente: $json.id_paciente,\n    tipo_consulta: tipo,\n    fecha_preferida: $json.fecha_preferida,\n    prioridad: tipos[tipo] || 5\n  }\n};"
+        "jsCode": "// la prioridad sale del tipo de consulta: 1 mayor urgencia, 5 menor.\n// el turno reparte los items del mismo lote en horarios distintos,\n// porque todos se evaluan antes de que se inserte ninguna cita.\nconst tipos = { urgencia: 1, control: 3, general: 5 };\n\nreturn $input.all().map((item, i) => ({\n  json: {\n    id_solicitud: item.json.id,\n    id_paciente: item.json.id_paciente,\n    tipo_consulta: item.json.tipo_consulta,\n    fecha_preferida: item.json.fecha_preferida,\n    prioridad: tipos[item.json.tipo_consulta] || 5,\n    turno: i\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        -64
+        -336,
+        -80
       ],
       "id": "845d121d-d21f-480d-aad1-e305b3491912",
       "name": "Calcula prioridad"
@@ -150,14 +149,16 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select m.id as id_medico,\n       (d.hora_inicio + (interval '30 minutes' * (\n          select count(*) from cita c\n          where c.id_medico = d.id_medico\n            and c.fecha_hora::date = date '{{ $json.fecha_preferida }}'\n            and c.estado = 'confirmada'\n       ))) as hora_inicio,\n       d.cupos\nfrom disponibilidad d\njoin medico m on m.id = d.id_medico\nwhere m.activo = true\n  and d.dia_semana = extract(isodow from date '{{ $json.fecha_preferida }}')\n  and d.cupos > (\n    select count(*) from cita c\n    where c.id_medico = d.id_medico\n      and c.fecha_hora::date = date '{{ $json.fecha_preferida }}'\n      and c.estado = 'confirmada'\n  )\norder by d.hora_inicio\nlimit 1;",
-        "options": {}
+        "query": "select m.id as id_medico,\n       d.hora_inicio,\n       d.cupos,\n       (select count(*) from cita c\n        where c.id_medico = d.id_medico\n          and c.fecha_hora::date = date '{{ $json.fecha_preferida }}'\n          and c.estado = 'confirmada') as ocupados\nfrom disponibilidad d\njoin medico m on m.id = d.id_medico\nwhere m.activo = true\n  and d.dia_semana = extract(isodow from date '{{ $json.fecha_preferida }}')\norder by d.hora_inicio;",
+        "options": {
+          "queryBatching": "independently"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        112,
-        -64
+        -144,
+        -80
       ],
       "id": "568e53df-d81d-4458-b37c-07e3b554f19b",
       "name": "Busca cupo",
@@ -197,7 +198,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        336,
+        224,
         -64
       ],
       "id": "0d055206-b32f-4609-b36e-548c7df445d5",
@@ -206,7 +207,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values (\n    {{ $('Calcula prioridad').item.json.id_solicitud }},\n    {{ $('Calcula prioridad').item.json.id_paciente }},\n    {{ $json.id_medico }},\n    (date '{{ $('Calcula prioridad').item.json.fecha_preferida }}' + time '{{ $json.hora_inicio }}')\n  )\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'asignada',\n    prioridad = {{ $('Calcula prioridad').item.json.prioridad }}\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita, solicitud_cita.id as id_solicitud, solicitud_cita.estado;",
+        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values (\n    {{ $json.id_solicitud }},\n    {{ $json.id_paciente }},\n    {{ $json.id_medico }},\n    (date '{{ $json.fecha_preferida }}' + time '{{ $json.hora_inicio }}')\n  )\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'asignada',\n    prioridad = {{ $json.prioridad }}\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita, solicitud_cita.id as id_solicitud, solicitud_cita.estado;",
         "options": {
           "queryBatching": "independently"
         }
@@ -231,7 +232,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with espera as (\n  insert into lista_espera (id_solicitud, prioridad)\n  values (\n    {{ $('Calcula prioridad').item.json.id_solicitud }},\n    {{ $('Calcula prioridad').item.json.prioridad }}\n  )\n  on conflict (id_solicitud) do nothing\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'en_espera',\n    prioridad = {{ $('Calcula prioridad').item.json.prioridad }}\nwhere id = {{ $('Calcula prioridad').item.json.id_solicitud }}\nreturning id as id_solicitud, estado, prioridad;",
+        "query": "with espera as (\n  insert into lista_espera (id_solicitud, prioridad)\n  values ({{ $json.id_solicitud }}, {{ $json.prioridad }})\n  on conflict (id_solicitud) do nothing\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'en_espera',\n    prioridad = {{ $json.prioridad }}\nwhere id = {{ $json.id_solicitud }}\nreturning id as id_solicitud, estado, prioridad;",
         "options": {
           "queryBatching": "independently"
         }
@@ -263,6 +264,19 @@
       ],
       "id": "88745f48-3f19-4701-ace5-43bed86acfa2",
       "name": "Une resultados"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Busca cupo devuelve las franjas repetidas una vez por cada solicitud\n// de entrada, asi que primero hay que quedarse con cada franja una vez.\nconst vistas = new Set();\nconst franjas = [];\n\nfor (const f of $('Busca cupo').all()) {\n  if (!f.json.id_medico) continue;\n  const clave = f.json.id_medico + '|' + f.json.hora_inicio;\n  if (vistas.has(clave)) continue;\n  vistas.add(clave);\n  franjas.push({\n    id_medico: f.json.id_medico,\n    hora_inicio: f.json.hora_inicio,\n    libres: Number(f.json.cupos) - Number(f.json.ocupados),\n    ocupados: Number(f.json.ocupados)\n  });\n}\n\n// reparte las solicitudes entre las franjas con cupo disponible.\n// se hace aqui y no en SQL porque todos los items se evaluan antes\n// de que se inserte ninguna cita: la base todavia no refleja las\n// asignaciones de este mismo lote.\nconst solicitudes = $('Calcula prioridad').all();\nconst salida = [];\n\nfor (const s of solicitudes) {\n  const franja = franjas.find(f => f.libres > 0);\n\n  if (franja) {\n    const [h, m] = franja.hora_inicio.split(':').map(Number);\n    const total = h * 60 + m + 30 * franja.ocupados;\n    const hora = String(Math.floor(total / 60)).padStart(2, '0') + ':' +\n                 String(total % 60).padStart(2, '0') + ':00';\n\n    franja.libres -= 1;\n    franja.ocupados += 1;\n\n    salida.push({ json: { ...s.json, id_medico: franja.id_medico, hora_inicio: hora } });\n  } else {\n    salida.push({ json: { ...s.json, id_medico: null, hora_inicio: null } });\n  }\n}\n\nreturn salida;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -80
+      ],
+      "id": "c661c6fb-3562-426a-928e-d076cadc45c8",
+      "name": "Reparte cupos"
     }
   ],
   "pinData": {},
@@ -329,7 +343,7 @@
       "main": [
         [
           {
-            "node": "¿Hay cupo?",
+            "node": "Reparte cupos",
             "type": "main",
             "index": 0
           }
@@ -382,6 +396,17 @@
           }
         ]
       ]
+    },
+    "Reparte cupos": {
+      "main": [
+        [
+          {
+            "node": "¿Hay cupo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -393,7 +418,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "e9cb4018-e0c9-4bd3-86a8-5c2d0a912230",
+  "versionId": "b020e76b-be27-484f-8f85-4378b227ee98",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
