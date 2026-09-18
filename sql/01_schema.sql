@@ -70,8 +70,9 @@ create table solicitud_cita(
     constraint cksol_prioridad check (prioridad is null or prioridad between 1 and 5)
 );
 
--- la restriccion unica de medico + fecha_hora impide doble asignacion
--- del mismo medico a la misma hora, a nivel de base y no solo de flujo
+-- un medico no puede tener dos citas vigentes a la misma hora. la regla
+-- vive en la base y no solo en el flujo, para que ninguna via de entrada
+-- pueda saltarsela.
 create table cita(
     id            int          generated always as identity primary key,
     id_solicitud  int          not null unique,
@@ -84,9 +85,16 @@ create table cita(
     constraint fkcita_solicitud foreign key (id_solicitud) references solicitud_cita(id),
     constraint fkcita_paciente  foreign key (id_paciente)  references paciente(id),
     constraint fkcita_medico    foreign key (id_medico)    references medico(id),
-    constraint ckcita_estado    check (estado in ('confirmada', 'atendida', 'cancelada', 'ausente')),
-    constraint uqcita_medico_horario unique (id_medico, fecha_hora)
+    constraint ckcita_estado    check (estado in ('confirmada', 'atendida', 'cancelada', 'ausente'))
 );
+
+-- la unicidad de medico + fecha_hora excluye las canceladas: al cancelar,
+-- el horario vuelve a quedar libre y WF-04 lo reasigna al siguiente en
+-- lista de espera. va como indice parcial y no como constraint unique
+-- porque PostgreSQL no admite where dentro de una restriccion de tabla.
+create unique index uqcita_medico_horario
+  on cita (id_medico, fecha_hora)
+  where estado <> 'cancelada';
 
 create table expediente(
     id                    int          generated always as identity primary key,

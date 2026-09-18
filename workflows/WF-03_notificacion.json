@@ -34,7 +34,7 @@
       ],
       "id": "151bf1f4-12b8-4eb9-97cb-bdb23faa32c5",
       "name": "Lee citas sin notificar",
-      "alwaysOutputData": true,
+      "alwaysOutputData": false,
       "credentials": {
         "postgres": {
           "id": "SboKk4ZMcKtMLxBt",
@@ -46,8 +46,8 @@
       "parameters": {
         "fromEmail": "no-responder@sigac.local",
         "toEmail": "={{ $json.correo }}",
-        "subject": "=\tCita confirmada — {{ $json.fecha_hora }}",
-        "html": "=<p>Estimado(a) {{ $json.nombre }} {{ $json.apellido }},</p>\n<p>Su cita ha sido confirmada con los siguientes datos:</p>\n<ul>\n  <li><b>Fecha y hora:</b> {{ $json.fecha_hora }}</li>\n  <li><b>Medico:</b> {{ $json.medico }}</li>\n  <li><b>Especialidad:</b> {{ $json.especialidad }}</li>\n</ul>\n<p>Presentese 15 minutos antes. Si no puede asistir, comuniquese con recepcion.</p>\n<p>SIGAC - Sistema de Gestion de Atencion Clinica</p>",
+        "subject": "=Cita confirmada — {{ DateTime.fromISO($json.fecha_hora).setZone('America/Guatemala').toFormat(\"dd/MM/yyyy 'a las' HH:mm\") }}\n",
+        "html": "=<p>Estimado(a) {{ $json.nombre }} {{ $json.apellido }},</p>\n<p>Su cita ha sido confirmada con los siguientes datos:</p>\n<ul>\n  <li><b>Fecha y hora:</b> {{ DateTime.fromISO($json.fecha_hora).setZone('America/Guatemala').toFormat(\"dd/MM/yyyy 'a las' HH:mm\") }}</li>\n  <li><b>Medico:</b> {{ $json.medico }}</li>\n  <li><b>Especialidad:</b> {{ $json.especialidad }}</li>\n</ul>\n<p>Presentese 15 minutos antes. Si no puede asistir, comuniquese con recepcion.</p>\n<p>SIGAC - Sistema de Gestion de Atencion Clinica</p>",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
@@ -135,7 +135,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "982404a0-ca55-4360-80d3-14fb59830e8c",
+  "versionId": "8f95ff97-342a-43a2-a43e-2c8bfa9a3a86",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
