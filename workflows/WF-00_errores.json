@@ -35,8 +35,8 @@
     },
     {
       "parameters": {
-        "fromEmail": "\talertas@sigac.local",
-        "toEmail": "\tadmin@sigac.local",
+        "fromEmail": "={{ $env.SIGAC_GMAIL_USUARIO }}",
+        "toEmail": "={{ $env.SIGAC_CORREO_ADMIN }}",
         "subject": "=[SIGAC] Error en {{ $json.workflow }}",
         "html": "=<p>Se registro un error de severidad alta.</p>\n<ul>\n  <li><b>Workflow:</b> {{ $json.workflow }}</li>\n  <li><b>Nodo:</b> {{ $json.nodo }}</li>\n  <li><b>Registro:</b> {{ $json.id }}</li>\n</ul>",
         "options": {}
@@ -52,8 +52,8 @@
       "webhookId": "fefa268a-dc4d-41fc-b362-0ceec36c4e14",
       "credentials": {
         "smtp": {
-          "id": "QGUdpIidEOYJkElS",
-          "name": "SIGAC MailHog"
+          "id": "Jkht8qZqftBhAN8Z",
+          "name": "SIGAC Gmail"
         }
       }
     }
@@ -89,7 +89,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "5bb133c9-ed23-43ad-83a6-7b00b7b75c06",
+  "versionId": "8c1e031a-e19b-49c1-ab08-0a34df1dc033",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

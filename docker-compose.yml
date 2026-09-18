@@ -43,6 +43,9 @@ services:
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       SIGAC_CLAVE_CIFRADO: ${SIGAC_CLAVE_CIFRADO}
       SIGAC_CORREO_ADMIN: ${SIGAC_CORREO_ADMIN}
+      SIGAC_GMAIL_USUARIO: ${SIGAC_GMAIL_USUARIO}
+      SIGAC_GMAIL_HOST: ${SIGAC_GMAIL_HOST}
+      SIGAC_GMAIL_PORT: ${SIGAC_GMAIL_PORT}
     volumes:
       - sigac_n8n_data:/home/node/.n8n
     depends_on:
