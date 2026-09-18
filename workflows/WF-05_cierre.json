@@ -1,0 +1,339 @@
+{
+  "name": "WF-05 · Cierre de cita",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cerrar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "14534ccf-741c-4a9b-8c04-8b30a4f3ee80",
+      "name": "Webhook",
+      "webhookId": "78d56a8a-f120-49a0-a579-3e48cd155e6d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// misma autenticacion que los demas flujos: se compara hash\n// contra hash, nunca el token en claro.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : '';\n\n// solo se aceptan estos dos resultados de cierre\nconst resultado = ['atendida', 'ausente'].includes(cuerpo.resultado)\n  ? cuerpo.resultado\n  : null;\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    id_cita: cuerpo.id_cita,\n    resultado: resultado\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "86aebd94-91c0-456e-9b24-dd2e7763ab7b",
+      "name": "Hash del token"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select rol from usuario_api where token_hash = '{{ $json.token_hash }}' and activo = true;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b0b1bd6f-8e88-4ce6-b9d4-c6860540b094",
+      "name": "Verifica token",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fbfa7496-7e64-45e3-bdf0-1b80b4700d3a",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "medico",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "559071a2-2167-40c5-8955-5490d5a4400d",
+      "name": "¿Rol autorizado?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// token ausente, invalido, o rol sin permiso para cerrar citas.\n// el cierre lo hace el medico que atendio, no recepcion.\nreturn [{\n  json: {\n    codigo: 401,\n    estado: 'rechazado',\n    mensaje: 'Token ausente o invalido, o rol sin autorizacion'\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        192
+      ],
+      "id": "916dbdf2-dc83-49f8-8b76-7403395e845f",
+      "name": "Rechazo 401"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update cita\nset estado = '{{ $('Hash del token').first().json.resultado }}'\nwhere id = {{ $('Hash del token').first().json.id_cita }}\n  and estado = 'confirmada'\n  and fecha_hora <= now()\nreturning id as id_cita, id_medico, estado, fecha_hora;",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        896,
+        -96
+      ],
+      "id": "32b7a0e5-d616-4e10-b82c-1ea567fba2be",
+      "name": "Cierra cita",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3bf0802d-bf23-4c71-bb0f-010e3dea72b8",
+              "leftValue": "={{ $json.id_cita }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        -96
+      ],
+      "id": "837d7f7a-22d7-48c6-9ceb-22fe919b1a94",
+      "name": "¿Se cerro?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// la cita queda cerrada. el horario NO se libera: a diferencia\n// de una cancelacion, aqui la consulta si ocurrio o el paciente\n// no se presento, pero el cupo se consumio igual.\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'cerrada',\n    mensaje: 'Cita cerrada correctamente',\n    id_cita: $json.id_cita,\n    resultado: $json.estado\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -192
+      ],
+      "id": "f02d5a27-ad0c-4d8c-94fc-cda62c46f9b8",
+      "name": "Cierre exitoso"
+    },
+    {
+      "parameters": {
+        "jsCode": "// la cita no existe, ya fue cerrada o cancelada, es una cita\n// futura, o el resultado enviado no era atendida ni ausente.\n// mensaje unico a proposito: no se revela cual de los casos es.\nreturn [{\n  json: {\n    codigo: 404,\n    estado: 'rechazado',\n    mensaje: 'La cita no existe o no esta en condiciones de cerrarse'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        32
+      ],
+      "id": "0e3df872-a819-4613-aa7c-8078de7e79ad",
+      "name": "Rechazo 404"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.codigo || 200 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1680,
+        96
+      ],
+      "id": "1c1b794c-663b-4841-97c8-79d87fb1a0c2",
+      "name": "Respuesta"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Hash del token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash del token": {
+      "main": [
+        [
+          {
+            "node": "Verifica token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica token": {
+      "main": [
+        [
+          {
+            "node": "¿Rol autorizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Rol autorizado?": {
+      "main": [
+        [
+          {
+            "node": "Cierra cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cierra cita": {
+      "main": [
+        [
+          {
+            "node": "¿Se cerro?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se cerro?": {
+      "main": [
+        [
+          {
+            "node": "Cierre exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 404": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cierre exitoso": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 401": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "e98cbf8f-e8a1-4bff-a405-9c105c662ef1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
+  },
+  "nodeGroups": [],
+  "id": "76NQh90xjPaYv1An",
+  "tags": []
+}
