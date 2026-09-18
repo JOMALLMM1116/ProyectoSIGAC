@@ -22,6 +22,11 @@ services:
     ports:
       - "127.0.0.1:8025:8025"
 
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: sigac-gotenberg
+    restart: unless-stopped
+
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: sigac-n8n
@@ -41,6 +46,8 @@ services:
       N8N_RUNNERS_ENABLED: "true"
       NODE_FUNCTION_ALLOW_BUILTIN: crypto
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "false"
+      N8N_RESTRICT_FILE_ACCESS_TO: "/reportes"
       SIGAC_CLAVE_CIFRADO: ${SIGAC_CLAVE_CIFRADO}
       SIGAC_CORREO_ADMIN: ${SIGAC_CORREO_ADMIN}
       SIGAC_GMAIL_USUARIO: ${SIGAC_GMAIL_USUARIO}
@@ -48,9 +55,11 @@ services:
       SIGAC_GMAIL_PORT: ${SIGAC_GMAIL_PORT}
     volumes:
       - sigac_n8n_data:/home/node/.n8n
+      - ./reportes:/reportes
     depends_on:
       - postgres
       - mailhog
+      - gotenberg
 
 volumes:
   sigac_n8n_data:

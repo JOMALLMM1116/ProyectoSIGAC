@@ -1,0 +1,263 @@
+{
+  "name": "WF-06 Reporte semanal",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 23
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        0
+      ],
+      "id": "f0d94731-2755-4adb-9fac-2ec50abe186c",
+      "name": "Domingo 23:00"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  (select count(*) from cita where estado = 'confirmada') as citas_confirmadas,\n  (select count(*) from cita where estado = 'atendida')   as citas_atendidas,\n  (select count(*) from cita where estado = 'cancelada')  as citas_canceladas,\n  (select count(*) from cita where estado = 'ausente')    as citas_ausentes,\n  (select count(*) from solicitud_cita where estado = 'pendiente') as sol_pendientes,\n  (select count(*) from solicitud_cita where estado = 'asignada')  as sol_asignadas,\n  (select count(*) from solicitud_cita where estado = 'en_espera') as sol_en_espera,\n  (select count(*) from solicitud_cita where estado = 'rechazada') as sol_rechazadas,\n  (select count(*) from lista_espera where atendida = false) as espera_pendientes,\n  (select count(*) from lista_espera where atendida = true)  as espera_atendidas,\n  (select count(*) from paciente where activo = true) as pacientes_activos,\n  (select count(*) from solicitud_cita\n    where creado_en >= now() - interval '7 days') as sol_semana,\n  (select count(*) from cita\n    where creado_en >= now() - interval '7 days') as citas_semana,\n  (select count(*) from log_errores\n    where severidad = 'alta' and creado_en >= now() - interval '7 days') as errores_alta,\n  (select count(*) from log_errores\n    where severidad = 'media' and creado_en >= now() - interval '7 days') as errores_media,\n  (select count(*) from log_errores\n    where severidad = 'baja' and creado_en >= now() - interval '7 days') as errores_baja;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        32,
+        0
+      ],
+      "id": "209b1b93-cab4-4561-9430-5b00617f6a1f",
+      "name": "Reune indicadores",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select m.nombre, m.especialidad,\n       count(c.id) filter (where c.estado = 'atendida')   as atendidas,\n       count(c.id) filter (where c.estado = 'confirmada') as confirmadas,\n       count(c.id) filter (where c.estado = 'ausente')    as ausentes\nfrom medico m\nleft join cita c on c.id_medico = m.id\nwhere m.activo = true\ngroup by m.id, m.nombre, m.especialidad\norder by m.nombre;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        256,
+        0
+      ],
+      "id": "5e0d7692-aa47-4f9e-bd47-08d164af1998",
+      "name": "Carga por medico",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// el reporte es agregado: solo conteos y nombres de medicos.\n// no lleva ningun dato de paciente, ni siquiera enmascarado.\nconst ind = $('Reune indicadores').first().json;\nconst medicos = $('Carga por medico').all().map(m => m.json);\n\nconst ahora = new Date();\nconst fecha = ahora.toLocaleDateString('es-GT', {\n  timeZone: 'America/Guatemala',\n  day: '2-digit', month: '2-digit', year: 'numeric'\n});\nconst semana = Math.ceil(\n  ((ahora - new Date(ahora.getFullYear(), 0, 1)) / 86400000 + 1) / 7\n);\n\nconst filasMedicos = medicos.map(m => `\n  <tr>\n    <td>${m.nombre}</td>\n    <td>${m.especialidad}</td>\n    <td class=\"n\">${m.atendidas}</td>\n    <td class=\"n\">${m.confirmadas}</td>\n    <td class=\"n\">${m.ausentes}</td>\n  </tr>`).join('');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<style>\n  body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; margin: 40px; }\n  h1 { font-size: 20px; margin: 0 0 4px 0; color: #1B2A5E; }\n  .sub { font-size: 12px; color: #666; margin-bottom: 24px; }\n  h2 { font-size: 13px; margin: 24px 0 8px 0; color: #1B2A5E;\n       border-bottom: 1px solid #ddd; padding-bottom: 4px; }\n  table { width: 100%; border-collapse: collapse; font-size: 11px; }\n  th { text-align: left; background: #f2f4f8; padding: 6px 8px; font-weight: bold; }\n  td { padding: 6px 8px; border-bottom: 1px solid #eee; }\n  td.n, th.n { text-align: right; }\n  .nota { font-size: 10px; color: #777; margin: 4px 0 12px 0; }\n  .pie { margin-top: 32px; font-size: 9px; color: #888;\n         border-top: 1px solid #ddd; padding-top: 8px; }\n</style>\n</head>\n<body>\n\n<h1>SIGAC — Reporte semanal de indicadores</h1>\n<div class=\"sub\">Semana ${semana} del ${ahora.getFullYear()} &middot; Generado el ${fecha}</div>\n\n<h2>Actividad de los ultimos 7 dias</h2>\n<table>\n  <tr><td>Solicitudes recibidas</td><td class=\"n\">${ind.sol_semana}</td></tr>\n  <tr><td>Citas creadas</td><td class=\"n\">${ind.citas_semana}</td></tr>\n  <tr><td>Errores de severidad alta</td><td class=\"n\">${ind.errores_alta}</td></tr>\n  <tr><td>Errores de severidad media</td><td class=\"n\">${ind.errores_media}</td></tr>\n  <tr><td>Errores de severidad baja</td><td class=\"n\">${ind.errores_baja}</td></tr>\n</table>\n\n<h2>Citas por estado (acumulado)</h2>\n<table>\n  <tr><td>Confirmadas</td><td class=\"n\">${ind.citas_confirmadas}</td></tr>\n  <tr><td>Atendidas</td><td class=\"n\">${ind.citas_atendidas}</td></tr>\n  <tr><td>Canceladas</td><td class=\"n\">${ind.citas_canceladas}</td></tr>\n  <tr><td>Ausentes</td><td class=\"n\">${ind.citas_ausentes}</td></tr>\n</table>\n\n<h2>Solicitudes por estado (acumulado)</h2>\n<table>\n  <tr><td>Pendientes de clasificar</td><td class=\"n\">${ind.sol_pendientes}</td></tr>\n  <tr><td>Asignadas</td><td class=\"n\">${ind.sol_asignadas}</td></tr>\n  <tr><td>En lista de espera</td><td class=\"n\">${ind.sol_en_espera}</td></tr>\n  <tr><td>Rechazadas</td><td class=\"n\">${ind.sol_rechazadas}</td></tr>\n</table>\n\n<h2>Carga por medico (acumulado)</h2>\n<table>\n  <tr>\n    <th>Medico</th><th>Especialidad</th>\n    <th class=\"n\">Atendidas</th><th class=\"n\">Confirmadas</th><th class=\"n\">Ausentes</th>\n  </tr>\n  ${filasMedicos}\n</table>\n\n<h2>Lista de espera (estado actual)</h2>\n<table>\n  <tr><td>Solicitudes aguardando cupo</td><td class=\"n\">${ind.espera_pendientes}</td></tr>\n  <tr><td>Reasignaciones completadas</td><td class=\"n\">${ind.espera_atendidas}</td></tr>\n</table>\n\n<div class=\"pie\">\n  Documento generado automaticamente por SIGAC.\n  Contiene unicamente informacion agregada: no incluye datos identificativos\n  ni clinicos de ningun paciente. Pacientes registrados activos:\n  ${ind.pacientes_activos}.\n  <br><br>\n  Los indicadores marcados como acumulado reflejan el estado total del sistema\n  y no el periodo semanal. La base registra la fecha de creacion de cada cita,\n  pero no la fecha en que cambia de estado, de modo que no es posible acotar\n  por semana cuantas citas fueron atendidas o canceladas.\n</div>\n\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    nombre_archivo: `semana_${ahora.getFullYear()}-${String(semana).padStart(2, '0')}.pdf`,\n    semana: semana,\n    anio: ahora.getFullYear()\n  },\n  binary: {\n    'index.html': await this.helpers.prepareBinaryData(\n      Buffer.from(html, 'utf8'),\n      'index.html',\n      'text/html'\n    )\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "10ddd721-3df6-4a99-9417-99dd68453325",
+      "name": "Compone el reporte"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "index.html"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        704,
+        0
+      ],
+      "id": "c69379fc-200a-48c2-987e-d805446afee9",
+      "name": "Genera el PDF"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/reportes/{{ $('Compone el reporte').first().json.nombre_archivo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "ae414ab0-1f4d-4218-983a-fcb7c4f4b0b2",
+      "name": "Guarda el PDF"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SIGAC_GMAIL_USUARIO }}",
+        "toEmail": "={{ $env.SIGAC_CORREO_ADMIN }}",
+        "subject": "=\t[SIGAC] Reporte semanal - semana {{ $('Compone el reporte').first().json.semana }}",
+        "html": "<p>Adjunto el reporte semanal de indicadores de SIGAC.</p>\n<p>El documento contiene unicamente informacion agregada: no incluye datos\nidentificativos ni clinicos de ningun paciente.</p>\n<p>SIGAC - Sistema de Gestion de Atencion Clinica</p>",
+        "options": {
+          "attachments": "data"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "7e69f22c-cbb3-4a25-9d11-1f817a1c3491",
+      "name": "Envia el reporte",
+      "webhookId": "47ba30ac-669d-4025-ae95-5c4a448c2c5a",
+      "credentials": {
+        "smtp": {
+          "id": "Jkht8qZqftBhAN8Z",
+          "name": "SIGAC Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// gotenberg devuelve el binario sin nombre util, asi que el correo\n// lo adjuntaba con un identificador aleatorio. aqui se le pone el\n// mismo nombre con que se guarda en disco.\nconst nombre = $('Compone el reporte').first().json.nombre_archivo;\nconst item = $input.first();\n\nitem.binary.data.fileName = nombre;\nitem.binary.data.fileExtension = 'pdf';\nitem.binary.data.mimeType = 'application/pdf';\n\nreturn [item];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        0
+      ],
+      "id": "64bfa2b2-745e-4010-bf9d-0afce5e40b83",
+      "name": "Nombra el archivo"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Domingo 23:00": {
+      "main": [
+        [
+          {
+            "node": "Reune indicadores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reune indicadores": {
+      "main": [
+        [
+          {
+            "node": "Carga por medico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carga por medico": {
+      "main": [
+        [
+          {
+            "node": "Compone el reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compone el reporte": {
+      "main": [
+        [
+          {
+            "node": "Genera el PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera el PDF": {
+      "main": [
+        [
+          {
+            "node": "Nombra el archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guarda el PDF": {
+      "main": [
+        [
+          {
+            "node": "Envia el reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nombra el archivo": {
+      "main": [
+        [
+          {
+            "node": "Guarda el PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "16f7c6fc-d72b-429e-baca-4edf342b70e7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
+  },
+  "nodeGroups": [],
+  "id": "WpC2BvY3UvtasOCq",
+  "tags": []
+}
