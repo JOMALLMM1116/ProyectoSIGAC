@@ -1,0 +1,137 @@
+@startuml Clases_SIGAC
+skinparam classAttributeIconSize 0
+
+class UsuarioApi {
+  - id: Integer
+  - rol: String
+  - tokenHash: String
+  - activo: Boolean
+  + validarToken(hash: String): Boolean
+  + tieneRol(rol: String): Boolean
+}
+
+class Paciente {
+  - id: Integer
+  - dpiCifrado: String
+  - dpiHuella: String
+  - nombre: String
+  - apellido: String
+  - telefonoCifrado: String
+  - fechaNacimiento: Date
+  - correo: String
+  - activo: Boolean
+  + registrar(): void
+  + enmascararDPI(): String
+}
+
+class Medico {
+  - id: Integer
+  - nombre: String
+  - especialidad: String
+  - colegiado: String
+  - activo: Boolean
+  + estaActivo(): Boolean
+}
+
+class Disponibilidad {
+  - id: Integer
+  - diaSemana: Integer
+  - horaInicio: Time
+  - horaFin: Time
+  - cupos: Integer
+  + hayCupo(fecha: Date): Boolean
+}
+
+class SolicitudCita {
+  - id: Integer
+  - tipoConsulta: String
+  - motivo: String
+  - prioridad: Integer
+  - estado: String
+  - fechaPreferida: Date
+  + validarDatos(): Boolean
+  + clasificar(): void
+  + asignarPrioridad(): void
+  + cambiarEstado(estado: String): void
+}
+
+class Cita {
+  - id: Integer
+  - fechaHora: DateTime
+  - estado: String
+  - notificada: Boolean
+  + crear(): void
+  + cancelar(): void
+  + marcarNotificada(): void
+}
+
+class Expediente {
+  - id: Integer
+  - diagnosticoCifrado: String
+  - indicacionesCifrado: String
+  - creadoPor: String
+  + abrir(): void
+}
+
+class ListaEspera {
+  - id: Integer
+  - prioridad: Integer
+  - posicion: Integer
+  - atendida: Boolean
+  + encolar(): void
+  + siguienteEnEspera(): SolicitudCita
+}
+
+class BitacoraAuditoria {
+  - id: Integer
+  - tablaAfectada: String
+  - accion: String
+  - rol: String
+  - datosEnmascarados: String
+  - hashAnterior: String
+  - hashActual: String
+  + encadenar(hashAnterior: String): void
+  + verificarCadena(): Boolean
+}
+
+class LogErrores {
+  - id: Integer
+  - workflow: String
+  - nodo: String
+  - mensaje: String
+  - payloadEnmascarado: String
+  - severidad: String
+  + registrar(mensaje: String): void
+}
+
+Medico "1" o-- "0..*" Disponibilidad : define >
+Paciente "1" -- "0..*" SolicitudCita : realiza >
+SolicitudCita "1" -- "0..1" Cita : origina >
+Medico "1" -- "0..*" Cita : atiende >
+Paciente "1" -- "0..*" Cita : recibe >
+Cita "1" -- "0..1" Expediente : genera >
+Paciente "1" -- "0..*" Expediente : posee >
+SolicitudCita "1" -- "0..1" ListaEspera : ingresa a >
+
+UsuarioApi "1" ..> "0..*" SolicitudCita : autoriza >
+SolicitudCita "1" ..> "0..*" BitacoraAuditoria : registra >
+Cita "1" ..> "0..*" BitacoraAuditoria : registra >
+SolicitudCita "1" ..> "0..*" LogErrores : reporta >
+
+note bottom of Cita
+  Restricción: un Médico no puede tener dos Citas
+  en la misma fecha y hora (sin traslape).
+end note
+
+note bottom of Paciente
+  El DPI se guarda cifrado. Como el cifrado usa IV
+  aleatorio, se guarda además dpiHuella (SHA-256 fijo)
+  para poder buscar y evitar duplicados sin descifrar.
+end note
+
+note bottom of BitacoraAuditoria
+  Cada registro guarda el hash del anterior.
+  Si alguien altera una fila, la cadena se rompe
+  y verificarCadena() lo detecta.
+end note
+@enduml

@@ -1,0 +1,74 @@
+@startuml FlujoPrincipal_WF01
+title WF-01 · Ingesta de solicitudes de cita
+
+start
+
+:Webhook recibe POST /webhook/cita;
+note right
+  El token viaja en la cabecera
+  X-SIGAC-Token
+end note
+
+:Calcula SHA-256 del token;
+:Consulta usuario_api por token_hash;
+
+if (¿token válido y activo?) then (no)
+  :Prepara rechazo 401;
+  note right
+    Mensaje genérico: no distingue
+    entre token ausente, inexistente
+    o desactivado
+  end note
+  detach
+else (sí)
+endif
+
+if (¿rol es recepcion?) then (no)
+  :Prepara rechazo 403;
+  detach
+else (sí)
+endif
+
+:Valida los datos de la solicitud;
+note right
+  DPI de 13 dígitos, teléfono de 8,
+  formato de correo, fecha no anterior
+  a hoy, tipo de consulta en lista
+  cerrada. Los errores se acumulan
+  para devolverlos todos juntos.
+end note
+
+if (¿datos válidos?) then (no)
+  :Prepara rechazo 400\ncon el detalle del campo;
+  detach
+else (sí)
+endif
+
+:Cifra DPI y teléfono con AES-256-GCM;
+note right
+  Formato iv:textoCifrado:etiqueta.
+  Además calcula dpiHuella (SHA-256)
+  para poder deduplicar sin descifrar.
+  Se cifra aquí y no antes: no tiene
+  sentido gastar en cifrar algo que
+  puede ser descartado.
+end note
+
+:Inserta paciente y solicitud;
+note right
+  on conflict (dpi_huella) do update:
+  un paciente que ya existe no se
+  duplica, se actualiza.
+end note
+
+:Registra en bitacora_auditoria;
+note right
+  hash_actual = SHA-256(hash_anterior
+  || tabla_afectada || id_registro)
+end note
+
+:Prepara respuesta 201\ncon id_solicitud y hash;
+
+stop
+
+@enduml

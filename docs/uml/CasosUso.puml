@@ -1,0 +1,76 @@
+@startuml Secuencia_SIGAC
+actor Recepcionista
+
+participant "API n8n" as API
+participant "UsuarioApi" as U
+participant "SolicitudCita" as S
+participant "Paciente" as P
+participant "Disponibilidad" as D
+participant "Cita" as C
+participant "ListaEspera" as L
+participant "Expediente" as E
+participant "BitacoraAuditoria" as B
+participant "LogErrores" as LOG
+actor "Servidor de correo" as Correo
+
+== Ingesta síncrona — WF-01, responde al momento ==
+
+Recepcionista -> API : enviar solicitud de cita (datos + token)
+
+API -> U : validarToken(hash)
+U --> API : true
+
+API -> U : tieneRol("recepcion")
+U --> API : true
+
+alt datos válidos
+  API -> S : validarDatos()
+  S --> API : true
+
+  API -> P : registrar()
+  P --> API : paciente registrado
+
+  API -> P : enmascararDPI()
+  P --> API : *********0101
+
+  API -> B : encadenar(hashAnterior)
+  API --> Recepcionista : 201 solicitud registrada
+
+else datos inválidos
+  API -> S : validarDatos()
+  S --> API : false
+
+  API -> LOG : registrar(mensaje)
+  API --> Recepcionista : 400 datos inválidos
+end
+
+== Asignación diferida — WF-02, temporizador cada 5 min ==
+
+API -> S : clasificar()
+API -> S : asignarPrioridad()
+
+API -> D : hayCupo(fecha)
+
+alt hay cupo disponible
+  D --> API : true
+
+  API -> C : crear()
+  API -> S : cambiarEstado("asignada")
+
+else sin cupo disponible
+  D --> API : false
+
+  API -> L : encolar()
+  API -> S : cambiarEstado("en_espera")
+end
+
+API -> B : encadenar(hashAnterior)
+
+== Notificación diferida — WF-03, temporizador cada 5 min ==
+
+API -> Correo : notificación de cita confirmada
+API -> C : marcarNotificada()
+API -> E : abrir()
+
+API -> B : encadenar(hashAnterior)
+@enduml

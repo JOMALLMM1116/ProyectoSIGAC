@@ -1,0 +1,61 @@
+@startuml Arquitectura_SIGAC
+skinparam componentStyle rectangle
+skinparam nodeSep 40
+skinparam rankSep 55
+
+actor "Recepcionista" as Cliente
+actor "Administrador" as Admin
+
+node "Equipo anfitrión — Windows con WSL 2" {
+
+  frame "Interfaz de bucle local 127.0.0.1" as Loopback {
+    () ":5678" as P5678
+    () ":5433" as P5433
+    () ":8025" as P8025
+  }
+
+  node "Docker — red interna del proyecto" as Red {
+
+    component "sigac-n8n\nn8n 2.33.6" as N8N
+    component "sigac-postgres\nPostgreSQL 16" as PG
+    component "sigac-mailhog\nMailHog" as MH
+    component "gotenberg\n(previsto para WF-05)" as GB
+
+    database "Volumen nombrado\nsigac_postgres_data" as VOL
+  }
+}
+
+Cliente --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar
+Admin --> P8025 : consulta la bandeja
+Admin --> P5433 : pgAdmin
+
+P5678 --> N8N
+P8025 --> MH
+P5433 --> PG
+
+N8N --> PG : SQL\nhost postgres : 5432
+N8N --> MH : SMTP\nhost mailhog : 1025
+N8N ..> GB : HTTP\nconversión a PDF
+
+PG --> VOL : persiste
+
+note bottom of Loopback
+  Los tres puertos se publican únicamente en 127.0.0.1.
+  Ningún servicio queda accesible desde otros equipos
+  de la red local.
+end note
+
+note right of PG
+  Desde el anfitrión la base responde en el puerto 5433,
+  porque el 5432 ya lo ocupa una instancia de PostgreSQL
+  instalada en Windows. Dentro de la red de Docker,
+  n8n se conecta al 5432, que es el puerto del contenedor.
+end note
+
+note right of VOL
+  Volumen gestionado por Docker y no bind mount:
+  DrvFs en WSL no reproduce los permisos que
+  PostgreSQL exige y el contenedor entra en
+  bucle de reinicio.
+end note
+@enduml
