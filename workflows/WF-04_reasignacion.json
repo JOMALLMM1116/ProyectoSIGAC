@@ -21,8 +21,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select rol from usuario_api where token_hash = '{{ $json.token_hash }}' and activo = true;",
-        "options": {}
+        "query": "select rol from usuario_api where token_hash = $1 and activo = true;",
+        "options": {
+          "queryReplacement": "={{ $json.token_hash }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
@@ -89,7 +91,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// misma autenticacion que WF-01: se compara hash contra hash,\n// nunca el token en claro.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : '';\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    id_cita: cuerpo.id_cita,\n    motivo: cuerpo.motivo || 'sin motivo'\n  }\n}];"
+        "jsCode": "// misma autenticacion que WF-01: se compara hash contra hash,\n// nunca el token en claro.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : 'sin-token';\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    id_cita: cuerpo.id_cita || 0,\n    motivo: cuerpo.motivo || 'sin motivo'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -103,9 +105,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "update cita\nset estado = 'cancelada'\nwhere id = {{ $('Hash del token').first().json.id_cita }}\n  and estado = 'confirmada'\nreturning id as id_cita, id_medico, fecha_hora, fecha_hora::date as fecha;",
+        "query": "update cita\nset estado = 'cancelada'\nwhere id = $1::int\n  and estado = 'confirmada'\nreturning id as id_cita, id_medico, fecha_hora, fecha_hora::date as fecha;",
         "options": {
-          "queryBatching": "single"
+          "queryReplacement": "={{ $('Hash del token').first().json.id_cita }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -174,8 +176,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select le.id as id_espera,\n       le.id_solicitud,\n       le.prioridad,\n       s.id_paciente\nfrom lista_espera le\njoin solicitud_cita s on s.id = le.id_solicitud\nwhere le.atendida = false\n  and s.estado = 'en_espera'\n  and s.fecha_preferida = date '{{ $json.fecha }}'\norder by le.prioridad, le.creado_en\nlimit 1;\n",
-        "options": {}
+        "query": "select le.id as id_espera,\n       le.id_solicitud,\n       le.prioridad,\n       s.id_paciente\nfrom lista_espera le\njoin solicitud_cita s on s.id = le.id_solicitud\nwhere le.atendida = false\n  and s.estado = 'en_espera'\n  and s.fecha_preferida = $1::date\norder by le.prioridad, le.creado_en\nlimit 1;",
+        "options": {
+          "queryReplacement": "={{ $json.fecha }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
@@ -230,9 +234,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values (\n    {{ $json.id_solicitud }},\n    {{ $json.id_paciente }},\n    {{ $('Cancela cita').first().json.id_medico }},\n    '{{ $('Cancela cita').first().json.fecha_hora }}'\n  )\n  returning id, id_solicitud\n),\nespera as (\n  update lista_espera\n  set atendida = true\n  where id = {{ $json.id_espera }}\n  returning id\n)\nupdate solicitud_cita\nset estado = 'asignada'\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita_nueva, solicitud_cita.id as id_solicitud, solicitud_cita.estado;\n",
+        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values ($1::int, $2::int, $3::int, $4::timestamptz)\n  returning id, id_solicitud\n),\nespera as (\n  update lista_espera\n  set atendida = true\n  where id = $5::int\n  returning id\n)\nupdate solicitud_cita\nset estado = 'asignada'\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita_nueva, solicitud_cita.id as id_solicitud, solicitud_cita.estado;",
         "options": {
-          "queryBatching": "single"
+          "queryReplacement": "={{ $json.id_solicitud }}, {{ $json.id_paciente }}, {{ $('Cancela cita').first().json.id_medico }}, {{ $('Cancela cita').first().json.fecha_hora }}, {{ $json.id_espera }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -471,7 +475,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "f6ac5f23-8a5b-4e1d-aa33-5061b97e8f51",
+  "versionId": "cf62fdbd-a76d-4c79-8996-87690a176947",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
