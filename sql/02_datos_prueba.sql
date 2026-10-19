@@ -43,7 +43,7 @@ select 'bitacora_auditoria', count(*) from bitacora_auditoria;
 --   CAMBIOS Y ALTERACIONES POSTERIORES
 --   Octubre de 2026
 --
---   Todo lo que sigue se agrego despues de la carga inicial.
+--Todo lo que sigue se agrego despues de la carga inicial.
 --   Se mantiene separado y no integrado arriba, para que el
 --   historial del diseno quede legible: lo de arriba es la
 --   semilla con la que nacio el sistema en agosto, lo de abajo
@@ -141,3 +141,47 @@ order by dia_semana;
 select franja_preferida, count(*) as solicitudes
 from solicitud_cita
 group by franja_preferida;
+
+
+--============================================================
+
+-- CAMBIO 3 - UN TOKEN POR MEDICO
+--
+-- Acompana al CAMBIO 4 del esquema, que agrega id_medico a
+-- usuario_api. El token generico de medico se desactiva porque
+-- no identifica a nadie: con el, una nota clinica no podria
+-- firmarse con quien la escribio.
+--
+-- No se borra: queda desactivado como rastro de que existio.
+-- Es el mismo criterio para cualquier rotacion de tokens:
+-- desactivar el anterior e insertar el nuevo. Insertar el
+-- nuevo sin desactivar el viejo deja dos llaves abiertas.
+--
+-- Los marcadores se reemplazan solo al ejecutar, nunca en este
+-- archivo. Los tokens reales viven en .env como
+-- SIGAC_TOKEN_MEDICO_1 a SIGAC_TOKEN_MEDICO_5, y el numero
+-- coincide con el id del medico.
+-- ------------------------------------------------------------
+
+update usuario_api
+   set activo = false
+ where rol = 'medico'
+   and id_medico is null;
+
+insert into usuario_api (rol, token_hash, id_medico)
+values
+('medico', encode(sha256('PEGA_AQUI_TOKEN_MEDICO_1'::bytea), 'hex'), 1),
+('medico', encode(sha256('PEGA_AQUI_TOKEN_MEDICO_2'::bytea), 'hex'), 2),
+('medico', encode(sha256('PEGA_AQUI_TOKEN_MEDICO_3'::bytea), 'hex'), 3),
+('medico', encode(sha256('PEGA_AQUI_TOKEN_MEDICO_4'::bytea), 'hex'), 4),
+('medico', encode(sha256('PEGA_AQUI_TOKEN_MEDICO_5'::bytea), 'hex'), 5);
+
+
+-- VERIFICACION
+
+-- deben quedar activos un token de recepcion, uno de admin y
+-- cinco de medico, cada uno con su id_medico
+select u.id, u.rol, u.id_medico, m.nombre, u.activo
+from usuario_api u
+left join medico m on m.id = u.id_medico
+order by u.id;

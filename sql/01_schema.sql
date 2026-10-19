@@ -337,3 +337,51 @@ alter table lista_espera
 create index ixespera_sin_notificar
   on lista_espera (notificada)
   where notificada = false and atendida = false;
+
+
+-- ------------------------------------------------------------
+-- CAMBIO 4 - IDENTIDAD DEL MEDICO EN EL TOKEN
+--
+-- Hasta aqui el control de acceso era por rol, no por persona:
+-- habia un solo token de medico, compartido por todos. Alcanzaba
+-- para WF-05, porque cerrar una cita solo exige saber que quien
+-- llama es un medico.
+--
+-- La nota clinica exige mas. Cada nota va firmada con id_medico,
+-- y esa firma es lo que hace util el historial: que el
+-- especialista vea que la nota del lunes la escribio la medica
+-- general y no otro. Con un token compartido el sistema sabe que
+-- un medico escribio, pero no cual.
+--
+-- Se descartaron dos alternativas:
+--   - Recibir id_medico en el cuerpo de la peticion. Cualquiera
+--     con el token de medico podria firmar a nombre de otro.
+--   - Firmar con el medico asignado a la cita. Asume que quien
+--     atiende es siempre el asignado; si un medico cubre a otro,
+--     la nota queda firmada por quien no la escribio.
+--
+-- La solucion es que el token identifique a la persona: cada
+-- medico recibe su propio token, vinculado a su registro. La
+-- firma sale del token y no puede falsificarse desde la peticion.
+-- Ademas permite auditar que medico leyo un historial, y no solo
+-- que alguien con rol medico lo hizo.
+-- ------------------------------------------------------------
+
+alter table usuario_api
+  add column id_medico int null;
+
+alter table usuario_api
+  add constraint fkusuario_medico
+    foreign key (id_medico) references medico(id);
+
+-- solo un token de rol medico puede llevar id_medico. recepcion y
+-- admin no son personas del catalogo de medicos.
+alter table usuario_api
+  add constraint ckusuario_medico
+    check (id_medico is null or rol = 'medico');
+
+-- un solo token activo por medico. rotar un token es desactivar
+-- el anterior e insertar el nuevo; el viejo queda como rastro.
+create unique index uqusuario_medico_activo
+  on usuario_api (id_medico)
+  where activo;
