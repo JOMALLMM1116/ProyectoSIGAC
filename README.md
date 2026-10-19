@@ -1,11 +1,12 @@
 # SIGAC — Sistema de Gestión de Atención Clínica
 
-Automatización del ciclo de solicitud, clasificación, asignación y notificación de
-citas clínicas mediante n8n, en un entorno **100 % local** basado en contenedores.
+Automatización del ciclo de solicitud, clasificación, asignación, notificación y
+cierre de citas clínicas mediante n8n, en un entorno **local** basado en
+contenedores.
 
 **Análisis de Sistemas II**
 
-*Última actualización: 18 de septiembre de 2026*
+*Última actualización: 18 de octubre de 2026*
 
 ---
 
@@ -17,8 +18,8 @@ consultó cada expediente y los datos sensibles (DPI, teléfono, diagnóstico) s
 manejan sin protección ni control de acceso diferenciado.
 
 SIGAC automatiza el ciclo **solicitud → autenticación → autorización → validación
-→ registro → clasificación → asignación → notificación → expediente**, con la
-ciberseguridad como eje transversal del diseño.
+→ registro → clasificación → asignación → notificación → expediente → cierre**,
+con la ciberseguridad como eje transversal del diseño.
 
 ---
 
@@ -29,10 +30,26 @@ ciberseguridad como eje transversal del diseño.
 | `sigac-n8n` | `docker.n8n.io/n8nio/n8n:latest` | Motor de flujos | 127.0.0.1:5678 |
 | `sigac-postgres` | `postgres:16-alpine` | Persistencia | 127.0.0.1:5433 |
 | `sigac-mailhog` | `mailhog/mailhog:latest` | SMTP local | 127.0.0.1:8025 |
+| `sigac-gotenberg` | `gotenberg/gotenberg:8` | Conversión HTML a PDF | sin publicar |
 
-Los tres puertos se publican **únicamente en `127.0.0.1`**: no son alcanzables
-desde la red local. La comunicación entre contenedores ocurre por la red interna
-de Docker, donde cada servicio se resuelve por su nombre (`postgres`, `mailhog`).
+Los puertos publicados lo son **únicamente en `127.0.0.1`**: no son alcanzables
+desde la red local. Gotenberg no publica ninguno: solo lo alcanza n8n por la red
+interna de Docker, donde cada servicio se resuelve por su nombre (`postgres`,
+`mailhog`, `gotenberg`).
+
+### Correo saliente
+
+El sistema usa dos vías de correo según el destinatario:
+
+| Destinatario | Servidor | Contenido |
+|---|---|---|
+| Paciente | MailHog local | Fecha, médico y especialidad de su cita |
+| Administrador | Gmail real | Alertas de error y reporte semanal |
+
+La separación es deliberada: los correos al paciente llevan datos personales y no
+salen del entorno local. Las alertas y el reporte contienen solo identificadores
+de flujo y datos agregados, de modo que pueden entregarse por un servicio externo
+sin exponer información clínica.
 
 Diagramas en `docs/uml/`: arquitectura de contenedores, flujo principal (WF-01),
 casos de uso, clases y secuencia. El PDF `DiagramasUML.pdf` contiene los cinco
@@ -45,6 +62,8 @@ ya renderizados.
 - Docker Desktop (o Docker Engine + Compose v2)
 - Git
 - `curl` o un cliente HTTP como Insomnia o Postman
+- Una cuenta de Gmail con verificación en dos pasos, para generar una contraseña
+  de aplicación
 - Opcional: pgAdmin o DBeaver para inspeccionar la base
 
 ---
@@ -78,7 +97,9 @@ openssl rand -hex 32
 | `POSTGRES_PASSWORD` | Contraseña de la base |
 | `POSTGRES_DB` | Nombre de la base (`sigac`) |
 | `SMTP_HOST` / `SMTP_PORT` | `mailhog` / `1025` |
-| `SIGAC_CORREO_ADMIN` | Destinatario de alertas |
+| `SIGAC_CORREO_ADMIN` | Destinatario de alertas y reportes |
+| `SIGAC_GMAIL_USUARIO` | Cuenta de Gmail que envía las alertas |
+| `SIGAC_GMAIL_HOST` / `SIGAC_GMAIL_PORT` | `smtp.gmail.com` / `465` |
 | `N8N_ENCRYPTION_KEY` | Llave con que n8n cifra sus credenciales guardadas |
 | `SIGAC_CLAVE_CIFRADO` | Llave del cifrado de datos sensibles (32 bytes exactos) |
 | `SIGAC_TOKEN_RECEPCION` | Token del rol recepción |
@@ -87,6 +108,12 @@ openssl rand -hex 32
 
 > `SIGAC_CLAVE_CIFRADO` debe tener exactamente 64 caracteres hexadecimales, que
 > son los 32 bytes que exige AES-256. El nodo de cifrado falla si no los tiene.
+
+> La contraseña de aplicación de Gmail no aparece en esta tabla y no se pasa como
+> variable de entorno. El nodo Send Email de n8n no admite expresiones en el campo
+> de contraseña, de modo que la credencial reside en el almacén interno de n8n,
+> cifrada con `N8N_ENCRYPTION_KEY`. Pasarla por entorno la expondría en
+> `docker inspect` y en `printenv` dentro del contenedor.
 
 ### 4.3 Registrar los tokens en la base
 
@@ -137,9 +164,23 @@ docker compose up -d
 | User / Password | vacíos |
 | SSL/TLS | desactivado |
 
+4. Crear una segunda credencial **SMTP**, nombrada `SIGAC Gmail`:
+
+| Campo | Valor |
+|---|---|
+| Host | `smtp.gmail.com` |
+| Port | `465` |
+| User | la cuenta de Gmail |
+| Password | la contraseña de aplicación de 16 caracteres, sin espacios |
+| SSL/TLS | activado |
+
+> La contraseña de aplicación se genera en `myaccount.google.com` → Seguridad →
+> Contraseñas de aplicaciones, y requiere tener activada la verificación en dos
+> pasos.
+
 ### 4.6 Importar y publicar los flujos
 
-Importar los cinco archivos de `workflows/` mediante el menú `...` →
+Importar los siete archivos de `workflows/` mediante el menú `...` →
 *Import from File*, en este orden:
 
 | Archivo | Flujo |
@@ -149,13 +190,15 @@ Importar los cinco archivos de `workflows/` mediante el menú `...` →
 | `WF-02_clasificacion.json` | Clasificación y asignación |
 | `WF-03_notificacion.json` | Notificación y expediente |
 | `WF-04_reasignacion.json` | Reasignación de cupos liberados |
+| `WF-05_cierre.json` | Cierre de cita |
+| `WF-06_reporte.json` | Reporte semanal en PDF |
 
 Para cada flujo importado:
 
-1. Asignar la credencial `SIGAC PostgreSQL` a sus nodos Postgres, y
-   `SIGAC MailHog` a los nodos Send Email de WF-00 y WF-03.
+1. Asignar la credencial `SIGAC PostgreSQL` a sus nodos Postgres. Para los nodos
+   Send Email: `SIGAC MailHog` en WF-03, y `SIGAC Gmail` en WF-00 y WF-06.
 2. Entrar a **Settings** del flujo y establecer **Error Workflow** →
-   `WF-00 Manejador de errores`. Esto aplica a WF-01, WF-02, WF-03 y WF-04;
+   `WF-00 Manejador de errores`. Esto aplica a los seis flujos restantes;
    WF-00 no apunta a ninguno.
 3. Publicar con el botón **Publish**, indicando nombre de versión y descripción.
 
@@ -173,19 +216,23 @@ Para cada flujo importado:
 |---|---|---|
 | `POST /webhook/cita` | WF-01 | Registrar una solicitud de cita |
 | `POST /webhook/cancelar` | WF-04 | Cancelar una cita y reasignar su cupo |
+| `POST /webhook/cerrar` | WF-05 | Marcar una cita como atendida o ausente |
 
-Ambos en `http://localhost:5678`.
+Todos en `http://localhost:5678`.
 
-Los flujos WF-02 y WF-03 no tienen endpoint: se disparan por temporizador cada
-cinco minutos. La asignación de médico y horario y la notificación al paciente
-ocurren de forma diferida, no dentro de la petición.
+Los flujos WF-02, WF-03 y WF-06 no tienen endpoint: se disparan por temporizador.
+Los dos primeros cada cinco minutos, el reporte los domingos a las 23:00. La
+asignación de médico y horario y la notificación al paciente ocurren de forma
+diferida, no dentro de la petición.
 
 ### Cabeceras
 
 ```
 Content-Type: application/json
-X-SIGAC-Token: <token del rol recepcion>
+X-SIGAC-Token: <token del rol correspondiente>
 ```
+
+El rol `recepcion` registra y cancela citas; el rol `medico` las cierra.
 
 ### Cuerpo — registrar una solicitud
 
@@ -199,7 +246,7 @@ X-SIGAC-Token: <token del rol recepcion>
   "fecha_nacimiento": "1990-05-12",
   "tipo_consulta": "general",
   "motivo": "dolor de cabeza",
-  "fecha_preferida": "2026-10-05"
+  "fecha_preferida": "2026-11-10"
 }
 ```
 
@@ -211,6 +258,17 @@ X-SIGAC-Token: <token del rol recepcion>
   "motivo": "el paciente no puede asistir"
 }
 ```
+
+### Cuerpo — cerrar una cita
+
+```json
+{
+  "id_cita": 45,
+  "resultado": "atendida"
+}
+```
+
+El campo `resultado` admite únicamente `atendida` o `ausente`.
 
 ### Reglas de validación aplicadas
 
@@ -226,16 +284,19 @@ X-SIGAC-Token: <token del rol recepcion>
 Los errores de validación se acumulan y se devuelven todos en una sola respuesta,
 en lugar de uno por intento.
 
+Para el cierre, además: la cita debe estar `confirmada` y su fecha y hora ya
+haber transcurrido. No se puede cerrar una cita futura.
+
 ### Códigos de respuesta
 
 | Código | Significado |
 |---|---|
-| 200 | Cancelación procesada |
+| 200 | Cancelación o cierre procesados |
 | 201 | Solicitud registrada |
 | 400 | Los datos no superan la validación |
-| 401 | Token ausente o inválido |
+| 401 | Token ausente o inválido, o rol sin autorización en WF-05 |
 | 403 | El rol no autoriza la operación |
-| 404 | La cita no existe o no está en estado cancelable |
+| 404 | La cita no existe o no está en condiciones de cancelarse o cerrarse |
 
 ---
 
@@ -368,6 +429,8 @@ select le.id, le.id_solicitud, le.atendida from lista_espera le order by le.id;
 "
 ```
 
+La cita nueva debe conservar el mismo médico y el mismo horario que la cancelada.
+
 ### CP-08 · Caída de dependencia → WF-00 captura el error
 
 > **Advertencia:** este caso detiene el contenedor de PostgreSQL a propósito.
@@ -392,7 +455,7 @@ select id, workflow, nodo, mensaje, severidad, creado_en from log_errores order 
 "
 ```
 
-La alerta correspondiente aparece en `http://localhost:8025`.
+La alerta llega al correo configurado en `SIGAC_CORREO_ADMIN`.
 
 ### CP-09 · Integridad de la bitácora → cadena rota
 
@@ -418,6 +481,51 @@ docker compose exec postgres psql -U sigac_app -d sigac -c \
 > El valor original depende del contenido real de la tabla. Consultarlo antes de
 > alterarlo: `select id, id_registro from bitacora_auditoria where id = 8;`
 
+### CP-10 · Cierre de cita → 200, 401 y 404
+
+Localizar una cita confirmada cuya fecha ya haya transcurrido:
+
+```bash
+docker compose exec postgres psql -U sigac_app -d sigac -c "
+select id, id_medico, fecha_hora, estado from cita
+where estado = 'confirmada' and fecha_hora <= now() order by id limit 3;
+"
+```
+
+Los tres caminos del flujo, ajustando los identificadores a los que devuelva la
+consulta anterior:
+
+```bash
+# cierre exitoso con token de medico
+curl -s -o /dev/null -w "valido      → HTTP %{http_code}\n" -X POST http://localhost:5678/webhook/cerrar \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_MEDICO" \
+  -d '{"id_cita": 45, "resultado": "atendida"}'
+
+# rol no autorizado
+curl -s -o /dev/null -w "rol erroneo → HTTP %{http_code}\n" -X POST http://localhost:5678/webhook/cerrar \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_RECEPCION" \
+  -d '{"id_cita": 54, "resultado": "atendida"}'
+
+# cita futura
+curl -s -o /dev/null -w "cita futura → HTTP %{http_code}\n" -X POST http://localhost:5678/webhook/cerrar \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_MEDICO" \
+  -d '{"id_cita": 1182, "resultado": "atendida"}'
+```
+
+### CP-11 · Reporte semanal → PDF generado y enviado
+
+Abrir **WF-06** en n8n y pulsar **Execute workflow** sin esperar al domingo.
+
+```bash
+ls -la reportes/
+```
+
+Debe aparecer un archivo `semana_AAAA-SS.pdf` con la fecha de ejecución, y llegar
+un correo al administrador con el documento adjunto.
+
 ### Comprobación de consistencia
 
 Enviar dos solicitudes con el mismo DPI debe producir **un solo paciente** con
@@ -439,6 +547,20 @@ select id_cita, count(*) from expediente group by id_cita having count(*) > 1;
 
 La consulta debe devolver cero filas.
 
+### Comprobación de inyección SQL
+
+Un apellido con apóstrofe es entrada legítima y debe registrarse sin error:
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/cita \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_RECEPCION" \
+  -d '{"dpi":"2547896320777","nombre":"Juan","apellido":"O'"'"'Connor","telefono":"55123456","correo":"t@correo.com","fecha_nacimiento":"1990-05-12","tipo_consulta":"general","motivo":"prueba","fecha_preferida":"'"$FECHA"'"}'
+```
+
+Debe devolver **201**. Antes de parametrizar las consultas, el apóstrofe cerraba
+la cadena SQL y PostgreSQL rechazaba la sentencia con un error de sintaxis.
+
 ---
 
 ## 7. Ciberseguridad implementada
@@ -447,29 +569,42 @@ La consulta debe devolver cero filas.
 |---|---|---|
 | 1 | Credenciales en variables de entorno; `.env` excluido del repositorio | Implementada |
 | 2 | Autenticación por token (SHA-256, comparación hash contra hash) | Implementada |
-| 2b | Autorización por rol: solo `recepcion` crea o cancela citas | Implementada |
+| 2b | Autorización por rol: `recepcion` registra y cancela, `medico` cierra | Implementada |
 | 3 | Cifrado AES-256-GCM en reposo sobre DPI y teléfono | Implementada |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256 | Implementada |
 | 5 | Validación estricta de entradas y enmascaramiento del DPI en la salida | Implementada |
+| 6 | Consultas parametrizadas en los siete flujos | Implementada |
 
 Decisiones de arquitectura con impacto en seguridad:
 
-- Los tres contenedores **no se exponen a la red local**: solo a `127.0.0.1`.
+- Los contenedores **no se exponen a la red local**: solo a `127.0.0.1`, y
+  Gotenberg ni siquiera eso.
 - El token nunca se compara en claro: se hashea y se contrasta contra
   `usuario_api.token_hash`.
-- La autenticación (401) y la autorización (403) se resuelven en nodos separados:
+- La autenticación y la autorización se resuelven en nodos separados:
   saber *quién es* el emisor no implica que pueda ejecutar la operación.
 - Los mensajes de rechazo son genéricos: no revelan si el token existe pero
   está inactivo, ni si el rol es incorrecto.
 - El DPI se enmascara (`*********0101`) antes de devolverlo o registrarlo.
-- El correo de notificación no transporta DPI, teléfono ni diagnóstico.
+- El correo al paciente no transporta DPI, teléfono ni diagnóstico, y no sale
+  del entorno local.
+- El reporte semanal contiene solo conteos agregados y nombres de médicos
+  activos, lo que permite entregarlo por correo externo.
 
-### Riesgo conocido
+### Parametrización de las consultas
 
-Las consultas de los nodos Postgres interpolan valores en lugar de usar
-parámetros. El riesgo no es explotable en el estado actual porque la validación
-previa acota los campos, pero la mitigación depende de esa validación y no de la
-consulta misma. La migración a *Query Parameters* está pendiente.
+Los catorce nodos Postgres que reciben valores usan **Query Parameters** con
+marcadores `$1`, `$2` en lugar de interpolar las expresiones dentro de la cadena
+SQL. La consulta y los datos viajan por caminos distintos, de modo que el motor
+nunca interpreta un dato como instrucción.
+
+La parametrización introdujo un efecto que conviene conocer: cuando una expresión
+se evalúa a cadena vacía, n8n no envía el parámetro y PostgreSQL rechaza la
+consulta con `there is no parameter $1`. Por eso los nodos que calculan el hash
+del token devuelven valores centinela — `sin-token`, `0`, `invalido` — en lugar
+de cadenas vacías cuando falta un dato en la petición. Así la consulta siempre
+recibe un valor, no encuentra coincidencias y el flujo responde con el rechazo
+que corresponde.
 
 ### Formato de los campos cifrados
 
@@ -493,18 +628,20 @@ ProyectoSIGAC/
 │   ├── 01_schema.sql          10 tablas + indices + semilla de auditoria
 │   └── 02_datos_prueba.sql    medicos, disponibilidad y usuarios de la API
 ├── workflows/
-│   ├── WF-00_errores.json     manejador centralizado de errores
-│   ├── WF-01_ingesta.json     ingesta de solicitudes
+│   ├── WF-00_errores.json         manejador centralizado de errores
+│   ├── WF-01_ingesta.json         ingesta de solicitudes
 │   ├── WF-02_clasificacion.json   clasificacion y asignacion
 │   ├── WF-03_notificacion.json    notificacion y expediente
-│   └── WF-04_reasignacion.json    reasignacion de cupos liberados
+│   ├── WF-04_reasignacion.json    reasignacion de cupos liberados
+│   ├── WF-05_cierre.json          cierre de cita
+│   └── WF-06_reporte.json         reporte semanal en PDF
 ├── scripts/
 │   ├── verificar_cadena.js    validador de la bitacora encadenada
 │   └── verificar.sh           envoltorio que lo ejecuta en el contenedor
 ├── docs/
 │   ├── documento-tecnico.md   documento tecnico del proyecto
 │   └── uml/                   diagramas .puml y PDF exportado
-└── reportes/                  salida de WF-05, ignorada por git
+└── reportes/                  salida de WF-06, ignorada por git
 ```
 
 ---
@@ -521,10 +658,10 @@ Diez tablas agrupadas en tres dominios.
 
 Estados definidos:
 
-| Entidad | Estado inicial | Estados posteriores |
-|---|---|---|
-| `solicitud_cita` | `pendiente` | `asignada` · `en_espera` · `rechazada` |
-| `cita` | `confirmada` | `atendida` · `cancelada` · `ausente` |
+| Entidad | Estado inicial | Estados posteriores | Quién los produce |
+|---|---|---|---|
+| `solicitud_cita` | `pendiente` | `asignada` · `en_espera` · `rechazada` | WF-02 y WF-04 |
+| `cita` | `confirmada` | `atendida` · `cancelada` · `ausente` | WF-04 y WF-05 |
 
 ### El campo `paciente.dpi_huella`
 
@@ -560,16 +697,15 @@ PostgreSQL no admite `where` dentro de un `constraint unique`, de ahí que sea u
 | WF-02 | Clasificación y asignación | 10 | Operativo |
 | WF-03 | Notificación y expediente | 4 | Operativo |
 | WF-04 | Reasignación de cupos liberados | 13 | Operativo |
-| WF-05 | Reporte semanal en PDF | — | Pendiente |
+| WF-05 | Cierre de cita | 10 | Operativo |
+| WF-06 | Reporte semanal en PDF | 8 | Operativo |
 
-Tipos de nodo distintos utilizados: **10** (Webhook, Schedule Trigger, Error
-Trigger, If, Switch, Merge, Code, Postgres, Send Email, Respond to Webhook),
-sobre un mínimo exigido de seis.
+Tipos de nodo distintos utilizados: **12** (Webhook, Schedule Trigger, Error
+Trigger, If, Switch, Merge, Code, Postgres, Send Email, Respond to Webhook,
+HTTP Request, Read/Write Files), sobre un mínimo exigido de seis.
 
-Casos de prueba: **9 de 9 superados**.
-
-Pendiente para la entrega final: parametrización de las consultas SQL,
-implementación de WF-05 con Gotenberg y video de demostración.
+Pendiente para la entrega final: video de demostración y mockups de interfaz como
+anexo de diseño.
 
 ---
 
