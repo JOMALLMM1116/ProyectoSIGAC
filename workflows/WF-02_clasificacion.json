@@ -149,9 +149,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select m.id as id_medico,\n       d.hora_inicio,\n       d.cupos,\n       (select count(*) from cita c\n        where c.id_medico = d.id_medico\n          and c.fecha_hora::date = date '{{ $json.fecha_preferida }}'\n          and c.estado = 'confirmada') as ocupados\nfrom disponibilidad d\njoin medico m on m.id = d.id_medico\nwhere m.activo = true\n  and d.dia_semana = extract(isodow from date '{{ $json.fecha_preferida }}')\norder by d.hora_inicio;",
+        "query": "select m.id as id_medico,\n       d.hora_inicio,\n       d.cupos,\n       (select count(*) from cita c\n        where c.id_medico = d.id_medico\n          and c.fecha_hora::date = $1::date\n          and c.estado = 'confirmada') as ocupados\nfrom disponibilidad d\njoin medico m on m.id = d.id_medico\nwhere m.activo = true\n  and d.dia_semana = extract(isodow from $2::date)\norder by d.hora_inicio;",
         "options": {
-          "queryBatching": "independently"
+          "queryReplacement": "={{ $json.fecha_preferida }}, {{ $json.fecha_preferida }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -207,9 +207,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values (\n    {{ $json.id_solicitud }},\n    {{ $json.id_paciente }},\n    {{ $json.id_medico }},\n    (date '{{ $json.fecha_preferida }}' + time '{{ $json.hora_inicio }}')\n  )\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'asignada',\n    prioridad = {{ $json.prioridad }}\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita, solicitud_cita.id as id_solicitud, solicitud_cita.estado;",
+        "query": "with nueva as (\n  insert into cita (id_solicitud, id_paciente, id_medico, fecha_hora)\n  values ($1::int, $2::int, $3::int, ($4::date + $5::time))\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'asignada',\n    prioridad = $6::int\nfrom nueva\nwhere solicitud_cita.id = nueva.id_solicitud\nreturning nueva.id as id_cita, solicitud_cita.id as id_solicitud, solicitud_cita.estado;",
         "options": {
-          "queryBatching": "independently"
+          "queryBatching": "independently",
+          "queryReplacement": "={{ $json.id_solicitud }}, {{ $json.id_paciente }}, {{ $json.id_medico }}, {{ $json.fecha_preferida }}, {{ $json.hora_inicio }}, {{ $json.prioridad }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -232,9 +233,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with espera as (\n  insert into lista_espera (id_solicitud, prioridad)\n  values ({{ $json.id_solicitud }}, {{ $json.prioridad }})\n  on conflict (id_solicitud) do nothing\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'en_espera',\n    prioridad = {{ $json.prioridad }}\nwhere id = {{ $json.id_solicitud }}\nreturning id as id_solicitud, estado, prioridad;",
+        "query": "with espera as (\n  insert into lista_espera (id_solicitud, prioridad)\n  values ($1::int, $2::int)\n  on conflict (id_solicitud) do nothing\n  returning id, id_solicitud\n)\nupdate solicitud_cita\nset estado = 'en_espera',\n    prioridad = $3::int\nwhere id = $4::int\nreturning id as id_solicitud, estado, prioridad;",
         "options": {
-          "queryBatching": "independently"
+          "queryBatching": "independently",
+          "queryReplacement": "={{ $json.id_solicitud }}, {{ $json.prioridad }}, {{ $json.prioridad }}, {{ $json.id_solicitud }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -418,7 +420,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "b020e76b-be27-484f-8f85-4378b227ee98",
+  "versionId": "bc461645-0e56-4402-aaa3-898ecb418bac",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

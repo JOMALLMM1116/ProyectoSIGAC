@@ -69,9 +69,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with marcada as (\n  update cita set notificada = true\n  where id = {{ $('Lee citas sin notificar').item.json.id_cita }}\n  returning id, id_paciente\n)\ninsert into expediente (id_paciente, id_cita, creado_por)\nselect m.id_paciente, m.id, 'sistema'\nfrom marcada m\non conflict (id_cita) do nothing\nreturning id as id_expediente, id_cita;",
+        "query": "with marcada as (\n  update cita set notificada = true\n  where id = $1::int\n  returning id, id_paciente\n)\ninsert into expediente (id_paciente, id_cita, creado_por)\nselect m.id_paciente, m.id, 'sistema'\nfrom marcada m\non conflict (id_cita) do nothing\nreturning id as id_expediente, id_cita;",
         "options": {
-          "queryBatching": "independently"
+          "queryBatching": "independently",
+          "queryReplacement": "={{ $('Lee citas sin notificar').item.json.id_cita }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -135,7 +136,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "8f95ff97-342a-43a2-a43e-2c8bfa9a3a86",
+  "versionId": "328de23f-17d0-45a6-af0a-a6eaf8bfc49d",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
