@@ -30,7 +30,7 @@
       "typeVersion": 2.7,
       "position": [
         224,
-        0
+        -160
       ],
       "id": "151bf1f4-12b8-4eb9-97cb-bdb23faa32c5",
       "name": "Lee citas sin notificar",
@@ -54,7 +54,7 @@
       "typeVersion": 2.1,
       "position": [
         448,
-        0
+        -160
       ],
       "id": "9ad734e7-fff4-4476-81a4-7ce14194f31e",
       "name": "Notifica al paciente",
@@ -79,10 +79,79 @@
       "typeVersion": 2.7,
       "position": [
         672,
-        0
+        -160
       ],
       "id": "4c021c54-f11b-492f-b056-58e08149b04f",
       "name": "Marca y abre expediente.",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select le.id as id_espera,\n       s.fecha_preferida,\n       p.nombre,\n       p.apellido,\n       p.correo,\n       (select count(*) + 1\n        from lista_espera le2\n        join solicitud_cita s2 on s2.id = le2.id_solicitud\n        where le2.atendida = false\n          and s2.fecha_preferida = s.fecha_preferida\n          and (le2.prioridad < le.prioridad\n               or (le2.prioridad = le.prioridad and le2.creado_en < le.creado_en))\n       ) as posicion\nfrom lista_espera le\njoin solicitud_cita s on s.id = le.id_solicitud\njoin paciente p on p.id = s.id_paciente\nwhere le.atendida = false\n  and le.notificada = false\nlimit 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        160
+      ],
+      "id": "9867547c-fd7b-4c5d-938c-d9c5b4d3f2ec",
+      "name": "Lee espera sin notificar",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "no-responder@sigac.local",
+        "toEmail": "={{ $json.correo }}",
+        "subject": "=Su solicitud quedo en lista de espera — {{ DateTime.fromISO($json.fecha_preferida).setZone('America/Guatemala').toFormat('dd/MM/yyyy') }}",
+        "html": "=<p>Estimado(a) {{ $json.nombre }} {{ $json.apellido }},</p>\n<p>Recibimos su solicitud de cita para el\n{{ DateTime.fromISO($json.fecha_preferida).setZone('America/Guatemala').toFormat('dd/MM/yyyy') }}.\nEse dia ya no hay cupos disponibles, de modo que su solicitud quedo en lista\nde espera en la posicion {{ $json.posicion }}.</p>\n<p>Si alguien cancela su cita, le asignaremos ese espacio y le avisaremos por\neste mismo medio.</p>\n<p>Si prefiere otra fecha u otro horario, puede comunicarse con recepcion y\ncon gusto le reprogramamos.</p>\n<p>SIGAC - Sistema de Gestion de Atencion Clinica</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        448,
+        160
+      ],
+      "id": "e3b037f2-6951-424a-845d-cd8a6592aa7e",
+      "name": "Notifica lista de espera",
+      "webhookId": "6d1c6cc1-b690-472d-9846-de947bbbbc15",
+      "credentials": {
+        "smtp": {
+          "id": "QGUdpIidEOYJkElS",
+          "name": "SIGAC MailHog"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update lista_espera\nset notificada = true\nwhere id = $1::int\nreturning id, notificada;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ $('Lee espera sin notificar').item.json.id_espera }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        160
+      ],
+      "id": "a02e5cb8-ca12-4560-9f83-b5781cabc91f",
+      "name": "Marca espera notificada",
       "credentials": {
         "postgres": {
           "id": "SboKk4ZMcKtMLxBt",
@@ -98,6 +167,11 @@
         [
           {
             "node": "Lee citas sin notificar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lee espera sin notificar",
             "type": "main",
             "index": 0
           }
@@ -125,6 +199,28 @@
           }
         ]
       ]
+    },
+    "Lee espera sin notificar": {
+      "main": [
+        [
+          {
+            "node": "Notifica lista de espera",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notifica lista de espera": {
+      "main": [
+        [
+          {
+            "node": "Marca espera notificada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -136,7 +232,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "328de23f-17d0-45a6-af0a-a6eaf8bfc49d",
+  "versionId": "52257403-baad-4830-8597-e4cbdd965311",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

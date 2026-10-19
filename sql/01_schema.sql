@@ -315,3 +315,25 @@ order by ordinal_position;
 
 select * from bitacora_auditoria;
 
+
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- CAMBIO 3 - AVISO DE LISTA DE ESPERA
+--
+-- Hasta aqui, la solicitud que no encontraba cupo pasaba a la
+-- cola en silencio. El paciente colgaba el telefono creyendo
+-- que tenia cita, y solo se enteraba si alguien cancelaba y le
+-- llegaba la notificacion.
+--
+-- Este campo cumple en lista_espera la misma funcion que
+-- notificada en cita: evita que el temporizador reenvie el
+-- mismo aviso cada cinco minutos.
+-- ------------------------------------------------------------
+
+alter table lista_espera
+  add column notificada boolean not null default false;
+
+create index ixespera_sin_notificar
+  on lista_espera (notificada)
+  where notificada = false and atendida = false;
