@@ -14,8 +14,8 @@ Facultad de Ingeniería en Sistemas de Información y Ciencias de la Computació
 | **Correo** | jmaquinl@miumg.edu.gt |
 | **Repositorio** | github.com/JOMALLMM1116/ProyectoSIGAC |
 | **Entregable** | Proyecto Final — Avance 2 (Funcional) |
-| **Versión del documento** | v3 |
-| **Fecha** | Cobán, Alta Verapaz — 18 de septiembre de 2026 |
+| **Versión del documento** | v4 |
+| **Fecha** | Cobán, Alta Verapaz — 18 de octubre de 2026 |
 
 ---
 
@@ -28,9 +28,9 @@ Esta sección responde a la ficha de inscripción solicitada en la sección 7 de
 | **Modalidad de trabajo** | Individual |
 | **Tema elegido** | Automatización de citas y expedientes de una clínica médica |
 | **Nombre del sistema** | SIGAC — Sistema de Gestión de Atención Clínica |
-| **Herramienta principal** | n8n 2.33.6 autoalojado en Docker, entorno 100 % local |
+| **Herramienta principal** | n8n 2.33.6 autoalojado en Docker, procesamiento y datos íntegramente locales |
 | **Persistencia** | PostgreSQL 16 en contenedor, con volumen nombrado |
-| **Enfoque de ciberseguridad** | Cinco capas: credenciales en variables de entorno, control de acceso por rol mediante token, cifrado AES-256-GCM en reposo de datos sensibles, bitácora de auditoría encadenada por hash SHA-256, y validación y enmascaramiento de entradas |
+| **Enfoque de ciberseguridad** | Seis capas: credenciales en variables de entorno, autenticación por token, autorización por rol, cifrado AES-256-GCM en reposo, bitácora de auditoría encadenada por hash SHA-256, y validación de entradas con consultas parametrizadas |
 | **Justificación del tema** | Una clínica maneja datos personales sensibles (DPI, teléfono, diagnóstico) sujetos a confidencialidad, lo que permite implementar controles de seguridad reales y no simbólicos. Además, el proceso de solicitud, asignación y notificación de citas es un flujo de negocio claro y acotado, adecuado al tamaño de un proyecto semestral. |
 
 Al tratarse de modalidad individual, no aplican las secciones 8, 9, 10, 12 ni 16 de la guía, correspondientes a la documentación de trabajo en equipo.
@@ -50,7 +50,7 @@ El efecto acumulado es doble: pérdida de eficiencia operativa por reprocesos y 
 
 ### 2.1 Solución propuesta
 
-SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atención: solicitud → autenticación → autorización → validación → registro → clasificación → asignación → notificación → expediente. Todo el sistema opera en un entorno local basado en contenedores Docker, sin dependencias de servicios en la nube, e incorpora la ciberseguridad como eje transversal del diseño y no como un agregado posterior.
+SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atención: solicitud → autenticación → autorización → validación → registro → clasificación → asignación → notificación → expediente → cierre. El procesamiento y los datos residen íntegramente en contenedores Docker locales, y la ciberseguridad se incorpora como eje transversal del diseño y no como un agregado posterior.
 
 ---
 
@@ -58,18 +58,19 @@ SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atenció
 
 ### 3.1 Objetivo general
 
-Diseñar e implementar un sistema automatizado de gestión de citas y expedientes clínicos utilizando n8n sobre una infraestructura local en contenedores, que integre persistencia en PostgreSQL, manejo centralizado de errores y cinco controles de ciberseguridad verificables, concluido y documentado antes de la fecha de entrega del Proyecto Final del curso.
+Diseñar e implementar un sistema automatizado de gestión de citas y expedientes clínicos utilizando n8n sobre una infraestructura local en contenedores, que integre persistencia en PostgreSQL, manejo centralizado de errores y controles de ciberseguridad verificables, concluido y documentado antes de la fecha de entrega del Proyecto Final del curso.
 
 ### 3.2 Objetivos específicos
 
 | # | Objetivo específico (SMART) | Verificación | Estado |
 |:-:|---|---|:-:|
-| 1 | Montar un entorno local reproducible con n8n, PostgreSQL y MailHog orquestados mediante Docker Compose. | El comando `docker compose up -d` levanta el sistema completo | Cumplido |
-| 2 | Implementar los flujos de trabajo que cubran ingesta, procesamiento, salida, reasignación y manejo de errores. | Exportación JSON de los flujos en el repositorio | Cumplido — cinco flujos |
+| 1 | Montar un entorno local reproducible con n8n, PostgreSQL, MailHog y Gotenberg orquestados mediante Docker Compose. | El comando `docker compose up -d` levanta el sistema completo | Cumplido |
+| 2 | Implementar los flujos de trabajo que cubran ingesta, procesamiento, salida, reasignación, cierre, reportería y manejo de errores. | Exportación JSON de los flujos en el repositorio | Cumplido — siete flujos |
 | 3 | Diseñar un modelo de datos normalizado de diez tablas que soporte los datos operativos, la auditoría y el registro de errores. | Script `01_schema.sql` ejecutado sin errores | Cumplido |
-| 4 | Implementar cinco controles de ciberseguridad sobre los datos sensibles gestionados por el sistema. | Casos de prueba 2, 3, 4, 5 y 9 superados | Cumplido |
-| 5 | Documentar y evidenciar nueve casos de prueba con entradas válidas e inválidas. | Resultados registrados en la sección 11 de este documento | Cumplido — 9 de 9 |
-| 6 | Incorporar la generación automática de un reporte semanal de indicadores en PDF. | Flujo WF-05 exportado y reporte generado | Pendiente para la entrega final |
+| 4 | Implementar controles de ciberseguridad sobre los datos sensibles gestionados por el sistema. | Casos de prueba 2, 3, 4, 5, 9 y 12 superados | Cumplido — seis capas |
+| 5 | Documentar y evidenciar casos de prueba con entradas válidas e inválidas. | Resultados registrados en la sección 11 de este documento | Cumplido — 12 de 12 |
+| 6 | Incorporar la generación automática de un reporte semanal de indicadores en PDF. | Flujo WF-06 exportado y reporte generado | Cumplido |
+| 7 | Completar el ciclo de vida de la cita mediante un flujo de cierre. | Flujo WF-05 exportado y casos 10 superados | Cumplido |
 
 ---
 
@@ -80,10 +81,11 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 - Registro y validación de solicitudes de cita recibidas vía webhook.
 - Clasificación por tipo de consulta y cálculo automático de prioridad.
 - Asignación de médico según disponibilidad configurada, con lista de espera cuando no hay cupo.
-- Notificación al paciente mediante correo electrónico local (MailHog).
+- Notificación al paciente mediante correo electrónico local.
 - Creación y resguardo del expediente asociado a cada cita.
 - Reasignación automática de cupos liberados por cancelación.
-- Reporte semanal de indicadores en formato PDF.
+- Cierre de la cita por el médico, con resultado atendida o ausente.
+- Reporte semanal de indicadores en formato PDF, enviado al administrador.
 - Bitácora de auditoría y registro centralizado de errores.
 
 ### 4.2 Excluido explícitamente del alcance
@@ -92,39 +94,55 @@ La delimitación negativa forma parte del diseño y se declara para evitar ambig
 
 - No se desarrolla aplicación móvil ni interfaz gráfica propia; la interacción es vía API.
 - No se implementa módulo de facturación ni cobros.
-- No se integran servicios en la nube ni proveedores externos de correo.
 - No se implementa firma electrónica avanzada ni certificados digitales.
 - No se contempla despliegue en producción ni alta disponibilidad.
+- No se implementan operaciones de consulta: el sistema registra, clasifica, asigna, notifica, cancela, reasigna y cierra, pero no dispone de endpoints de lectura. La información se consulta directamente sobre la base de datos.
+
+### 4.3 Corrección de una exclusión de versiones anteriores
+
+Las versiones v1 a v3 de este documento declaraban fuera de alcance «servicios en la nube y proveedores externos de correo». Esa afirmación dejó de ser exacta y se corrige aquí.
+
+El sistema emplea dos vías de correo distintas según el destinatario, y la diferencia es deliberada:
+
+| Destinatario | Servidor | Contenido | Sale a Internet |
+|---|---|---|:-:|
+| Paciente | MailHog local | Fecha, médico y especialidad de su cita | No |
+| Administrador | Gmail con credencial SMTP autenticada | Alertas de error y reporte semanal | Sí |
+
+Los correos dirigidos al paciente contienen datos personales y permanecen confinados al entorno local. Las alertas transportan únicamente el nombre del flujo, el nodo que falló y el identificador del registro de error; el reporte semanal contiene conteos agregados y nombres de médicos activos. Ninguno de los dos incluye información que permita identificar a un paciente, lo que hace admisible su entrega por un servicio externo.
+
+Los datos operativos y clínicos siguen residiendo exclusivamente en el contenedor de PostgreSQL. La incorporación de Gmail afecta la vía de notificación al administrador, no el almacenamiento ni el procesamiento.
 
 ---
 
 ## 5. Arquitectura de la solución
 
-La solución se compone actualmente de tres contenedores Docker sobre la red interna que Compose crea para el proyecto. Los tres publican sus puertos exclusivamente en la interfaz de bucle local `127.0.0.1`, de modo que ningún servicio queda accesible desde otros equipos de la red: esto constituye en sí mismo una medida de reducción de superficie de exposición.
+La solución se compone de cuatro contenedores Docker sobre la red interna que Compose crea para el proyecto. Tres publican sus puertos exclusivamente en la interfaz de bucle local `127.0.0.1` y el cuarto no publica ninguno, de modo que ningún servicio queda accesible desde otros equipos de la red: esto constituye en sí mismo una medida de reducción de superficie de exposición.
 
 | Contenedor | Imagen | Rol en el sistema | Puerto publicado |
 |---|---|---|:-:|
 | **sigac-n8n** | `docker.n8n.io/n8nio/n8n:latest` (v2.33.6) | Motor de orquestación de los flujos de trabajo | 127.0.0.1:5678 |
 | **sigac-postgres** | `postgres:16-alpine` | Persistencia de datos operativos, auditoría y errores | 127.0.0.1:5433 |
-| **sigac-mailhog** | `mailhog/mailhog:latest` | Servidor SMTP local para notificaciones sin salida a Internet | 127.0.0.1:8025 |
+| **sigac-mailhog** | `mailhog/mailhog:latest` | Servidor SMTP local para notificaciones al paciente | 127.0.0.1:8025 |
+| **sigac-gotenberg** | `gotenberg/gotenberg:8` | Conversión de HTML a PDF para el reporte semanal | Ninguno |
 
-Un cuarto contenedor, **Gotenberg**, está previsto para la conversión de HTML a PDF del flujo WF-05 y se incorporará antes de la entrega final.
+Gotenberg no publica puerto alguno porque solo lo consume n8n desde la red interna. Exponerlo al anfitrión no aportaría nada y ampliaría la superficie de exposición sin motivo.
 
-> **Captura 1 — Contenedores en ejecución.** Salida de `docker compose ps` mostrando los tres servicios activos y sus puertos publicados en `127.0.0.1`.
+> **Captura 1 — Contenedores en ejecución.** Salida de `docker compose ps` mostrando los cuatro servicios activos y sus puertos publicados en `127.0.0.1`.
 
 ### 5.1 Flujo de datos entre componentes
 
 ```
   Cliente HTTP (curl / Insomnia)
-        │  POST /webhook/cita  + token en cabecera
+        │  POST /webhook/{cita,cancelar,cerrar}  + token en cabecera
         ▼
-  ┌──────────────────────────────────────────┐
-  │  sigac-n8n  :5678   (WF-00 … WF-04)      │
-  └───┬──────────────────────┬───────────────┘
-      │ SQL                  │ SMTP
-      ▼                      ▼
-  sigac-postgres        sigac-mailhog :8025
-  (10 tablas)           (notificación)
+  ┌──────────────────────────────────────────────┐
+  │  sigac-n8n  :5678   (WF-00 … WF-06)          │
+  └──┬───────────┬───────────┬────────────┬──────┘
+     │ SQL       │ SMTP      │ HTTP       │ SMTP
+     ▼           ▼           ▼            ▼
+  postgres    mailhog    gotenberg    Gmail (externo)
+  (10 tablas) :8025      (PDF)        alertas y reporte
 
   Red interna de Docker creada por Compose
 ```
@@ -136,6 +154,7 @@ Un cuarto contenedor, **Gotenberg**, está previsto para la conversión de HTML 
 | `http://localhost:5678` | Editor de n8n |
 | `http://localhost:5678/webhook/cita` | Endpoint de ingesta (WF-01) |
 | `http://localhost:5678/webhook/cancelar` | Endpoint de cancelación (WF-04) |
+| `http://localhost:5678/webhook/cerrar` | Endpoint de cierre de cita (WF-05) |
 | `http://localhost:8025` | Bandeja de MailHog |
 | `localhost:5433` | PostgreSQL desde herramientas del anfitrión |
 
@@ -145,11 +164,15 @@ Un cuarto contenedor, **Gotenberg**, está previsto para la conversión de HTML 
 
 **Volúmenes nombrados en lugar de bind mounts.** Los datos de PostgreSQL se almacenan en un volumen gestionado por Docker y no en una ruta del sistema de archivos de Windows. Los bind mounts sobre DrvFs en WSL no reproducen correctamente el modelo de permisos que exige PostgreSQL, lo que provoca fallos de arranque en bucle del contenedor.
 
+La única excepción es la carpeta `reportes/`, montada como bind mount para que los PDF generados por WF-06 queden accesibles desde el anfitrión. Ahí no hay riesgo: n8n escribe archivos sueltos, no una base que exija permisos POSIX estrictos.
+
 **Habilitación explícita del módulo crypto.** El nodo Code de n8n restringe por defecto la carga de módulos nativos de Node.js. Para implementar el cifrado AES-256-GCM y los hashes SHA-256 se declara la variable `NODE_FUNCTION_ALLOW_BUILTIN=crypto` en la definición del servicio.
 
 **Acceso a variables de entorno desde los nodos Code.** La variable `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` habilita la lectura de `$env` dentro de los nodos Code, necesaria para que la clave de cifrado se lea del entorno y no quede escrita en el flujo.
 
-**Correo saliente confinado.** MailHog captura todos los mensajes generados por el sistema sin entregarlos a destinatarios reales, lo que permite evidenciar las notificaciones durante las pruebas sin exponer datos de pacientes hacia Internet.
+**Restricción del acceso a archivos.** La variable `N8N_RESTRICT_FILE_ACCESS_TO=/reportes` limita la lectura y escritura de los nodos de archivo a esa única ruta. Se discute en la sección 8.6, porque sustituyó a una configuración más permisiva que constituía un riesgo.
+
+**Separación del correo saliente.** MailHog captura las notificaciones al paciente sin entregarlas a destinatarios reales, lo que permite evidenciarlas durante las pruebas sin exponer datos personales. Las alertas al administrador y el reporte semanal salen por una credencial SMTP autenticada de Gmail, porque su destinatario es una persona real y su contenido no incluye información de pacientes.
 
 ---
 
@@ -174,10 +197,12 @@ El esquema consta de diez tablas agrupadas en tres dominios: control de acceso, 
 
 ### 6.1 Estados definidos
 
-| Entidad | Estado inicial | Estados posteriores | Restricción que los acota |
+| Entidad | Estado inicial | Estados posteriores | Qué flujo los produce |
 |---|---|---|---|
-| **solicitud_cita** | `pendiente` | `asignada` · `en_espera` · `rechazada` | `cksol_estado` |
-| **cita** | `confirmada` | `atendida` · `cancelada` · `ausente` | `ckcita_estado` |
+| **solicitud_cita** | `pendiente` | `asignada` · `en_espera` · `rechazada` | WF-02 y WF-04 |
+| **cita** | `confirmada` | `atendida` · `cancelada` · `ausente` | WF-04 y WF-05 |
+
+Hasta la incorporación de WF-05 el sistema solo producía dos de los cuatro estados de `cita`. La sección 12.4 documenta cómo se detectó ese hueco y cómo se cerró.
 
 ### 6.2 Restricciones de integridad
 
@@ -202,7 +227,7 @@ La solución es almacenar junto al valor cifrado una huella SHA-256 determinista
 
 El diseño contempla cuatro campos cifrados con AES-256-GCM: `dpi_cifrado` y `telefono_cifrado` en `paciente`, y `diagnostico_cifrado` e `indicaciones_cifrado` en `expediente`. La clave reside en variable de entorno y no se escribe en el flujo ni en el repositorio.
 
-Al momento de este avance, el cifrado opera sobre los dos campos de `paciente`, que son los que WF-01 escribe. Los dos campos de `expediente` permanecen nulos porque WF-03 crea el expediente vacío y su llenado clínico corresponde a la consulta médica, fuera del alcance automatizado.
+El cifrado opera sobre los dos campos de `paciente`, que son los que WF-01 escribe. Los dos campos de `expediente` permanecen nulos porque WF-03 crea el expediente vacío y su llenado clínico corresponde a la consulta médica, que queda fuera del alcance automatizado.
 
 **Coexistencia de dos formatos.** Los registros creados antes de implementar el cifrado conservan un valor SHA-256 de 64 caracteres, mientras que los posteriores almacenan el formato `iv:textoCifrado:etiqueta` de aproximadamente 84 caracteres. Los primeros no son descifrables, por tratarse de un hash y no de un cifrado. Se documenta la situación en lugar de ocultarla, y no se depuran los registros antiguos por ser datos de prueba sin valor operativo.
 
@@ -210,7 +235,7 @@ Al momento de este avance, el cifrado opera sobre los dos campos de `paciente`, 
 
 ## 7. Flujos de trabajo (workflows)
 
-La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC tiene cinco flujos implementados y publicados, y un sexto diseñado y pendiente de construcción.
+La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC tiene siete flujos implementados y publicados.
 
 | Flujo | Propósito | Nodos | Estado |
 |---|---|:-:|:-:|
@@ -219,19 +244,20 @@ La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC
 | **WF-02** | Clasificación y asignación | 10 | Publicado |
 | **WF-03** | Notificación y apertura de expediente | 4 | Publicado |
 | **WF-04** | Reasignación de cupos liberados | 13 | Publicado |
-| **WF-05** | Reporte semanal de indicadores en PDF | — | Pendiente |
+| **WF-05** | Cierre de cita | 10 | Publicado |
+| **WF-06** | Reporte semanal de indicadores en PDF | 8 | Publicado |
 
 ### WF-00 · Manejador centralizado de errores
 
-Captura cualquier excepción producida en los demás flujos, la registra de forma enmascarada y alerta al administrador.
+Captura cualquier excepción producida en los demás flujos, la registra de forma enmascarada y alerta al administrador por correo real.
 
 ```
 Error Trigger
   → Registra error           Postgres → log_errores, severidad alta
-  → Alerta al administrador  Send Email al administrador
+  → Alerta al administrador  Send Email hacia Gmail
 ```
 
-Se declara como *Error Workflow* en la configuración de WF-01, WF-02, WF-03 y WF-04. Centralizar la captura evita duplicar la lógica en cada flujo y garantiza un formato uniforme de registro.
+Se declara como *Error Workflow* en la configuración de los seis flujos restantes. Centralizar la captura evita duplicar la lógica en cada flujo y garantiza un formato uniforme de registro.
 
 ### WF-01 · Ingesta de solicitudes
 
@@ -316,57 +342,87 @@ Webhook (POST /webhook/cancelar)
 
 El diseño preliminar contemplaba invocar WF-03 mediante un nodo *Execute Workflow* para notificar de inmediato. La implementación prescinde de esa llamada: la cita nueva se crea con `notificada = false` y WF-03 la recoge en su siguiente ejecución programada. Se prefirió así para mantener un único punto de envío de notificaciones y evitar el acoplamiento entre flujos.
 
-### WF-05 · Reporte semanal de indicadores *(pendiente)*
+### WF-05 · Cierre de cita
 
-Generará automáticamente un informe agregado en PDF, sin información personal identificable.
+Permite al médico registrar el resultado de una cita ya celebrada, marcándola como atendida o ausente.
+
+```
+Webhook (POST /webhook/cerrar)
+  → Hash del token       Code
+  → Verifica token       Postgres
+  → ¿Rol autorizado?     If
+        false → Rechazo 401   Code
+        true  → Cierra cita   Postgres
+                  → ¿Se cerró?   If
+                        false → Rechazo 404      Code
+                        true  → Cierre exitoso   Code
+  → Respuesta            Respond to Webhook
+```
+
+Es el único flujo que autoriza al rol `medico`, que hasta su incorporación no disponía de ninguna operación. La consulta de cierre valida tres condiciones simultáneas: que la cita esté `confirmada`, que su fecha y hora ya hayan transcurrido, y que el resultado enviado sea uno de los dos valores admitidos. Si cualquiera falla, no se modifica ningún registro y el flujo responde 404.
+
+**A diferencia de la cancelación, el cierre no libera el horario.** La consulta ocurrió o el paciente no se presentó, pero el cupo se consumió igualmente. Por eso el estado `ausente` permanece dentro del índice de unicidad descrito en la sección 12.1, mientras que `cancelada` queda fuera.
+
+### WF-06 · Reporte semanal de indicadores
+
+Genera automáticamente un informe agregado en PDF, lo guarda en disco y lo envía al administrador.
 
 ```
 Schedule Trigger (domingo 23:00)
-  → Postgres (citas atendidas, ausencias, carga por médico,
-              tiempo promedio en lista de espera)
-  → Code (compone HTML agregado) → HTTP Request (Gotenberg)
-  → Write Binary File (/reportes/semana_YYYY-WW.pdf)
+  → Reune indicadores    Postgres
+  → Carga por medico     Postgres
+  → Compone el reporte   Code → HTML
+  → Genera el PDF        HTTP Request hacia Gotenberg
+  → Nombra el archivo    Code
+  → Guarda el PDF        Read/Write Files → /reportes
+  → Envia el reporte     Send Email hacia Gmail con adjunto
 ```
+
+El documento separa dos bloques de indicadores: la actividad de los últimos siete días y los totales acumulados del sistema. La distinción es necesaria porque la base registra la fecha de creación de cada cita, pero no la fecha en que cambia de estado. No existe información suficiente para determinar cuántas citas fueron atendidas o canceladas dentro de una semana concreta, de modo que presentar esos totales como semanales habría sido incorrecto. El propio pie del documento declara la limitación.
+
+El reporte contiene exclusivamente conteos y nombres de médicos activos. No incluye ningún dato de paciente, ni siquiera enmascarado, lo que permite entregarlo por correo externo.
+
+> **Captura 11 — Reporte generado.** PDF del reporte semanal con las secciones de actividad y acumulados.
 
 ### 7.1 Inventario de tipos de nodo utilizados
 
-La guía exige un mínimo de seis tipos de nodo distintos. La implementación actual emplea diez.
+La guía exige un mínimo de seis tipos de nodo distintos. La implementación emplea doce.
 
 | Categoría | Nodos |
 |---|---|
 | **Disparadores** | Webhook, Schedule Trigger, Error Trigger |
 | **Lógica y control** | If, Switch, Merge |
 | **Transformación** | Code |
-| **Integración y salida** | Postgres, Send Email, Respond to Webhook |
-
-La incorporación de WF-05 añadirá HTTP Request y Write Binary File, elevando el total a doce.
+| **Integración y salida** | Postgres, Send Email, Respond to Webhook, HTTP Request, Read/Write Files |
 
 ### 7.2 Configuraciones de nodo que resultaron determinantes
 
-Tres ajustes de n8n no son evidentes y condicionan el comportamiento de los flujos. Se documentan porque su omisión produce fallos silenciosos.
+Cuatro ajustes de n8n no son evidentes y condicionan el comportamiento de los flujos. Se documentan porque su omisión produce fallos silenciosos.
 
 | Ajuste | Dónde se aplica | Qué ocurre sin él |
 |---|---|---|
 | **Query Batching: Independent** | Nodos Postgres que insertan en lote | Una transacción única revierte todo el lote si un solo elemento falla |
 | **Always Output Data** | Consultas que pueden no devolver filas y alimentan un IF | El flujo se interrumpe y el webhook queda sin respuesta |
 | **Ausencia de Always Output Data** | Consultas que alimentan directamente una acción | Se envía un elemento vacío a la acción, que falla sin causa real |
+| **Valores centinela en los parámetros** | Consultas parametrizadas cuyo valor puede venir vacío | n8n no envía el parámetro y PostgreSQL rechaza la consulta |
 
-El tercer caso es la contracara del segundo y produjo un defecto documentado en la sección 12.
+El tercer caso es la contracara del segundo y produjo el defecto documentado en la sección 12.2. El cuarto apareció al parametrizar las consultas y se describe en la sección 12.6.
 
 ---
 
 ## 8. Ciberseguridad
 
-La guía establece la ciberseguridad como eje obligatorio y la rúbrica técnica le asigna tres puntos, evaluando tres elementos: validación de entradas, control de acceso y cifrado de información sensible. SIGAC implementa cinco capas que cubren los tres elementos y agregan trazabilidad verificable. Las cinco están implementadas y verificadas por casos de prueba.
+La guía establece la ciberseguridad como eje obligatorio y la rúbrica técnica le asigna tres puntos, evaluando tres elementos: validación de entradas, control de acceso y cifrado de información sensible. SIGAC implementa seis capas que cubren los tres elementos y agregan trazabilidad verificable. Las seis están implementadas y verificadas por casos de prueba.
 
 | Capa | Control implementado | Evidencia |
 |:-:|---|---|
-| 1 | Gestión de secretos: todas las credenciales residen en variables de entorno. El archivo `.env` se excluye del control de versiones y se versiona únicamente `.env.example` con marcadores. | El repositorio no contiene `.env` |
+| 1 | Gestión de secretos: todas las credenciales residen en variables de entorno o en el almacén cifrado de n8n. El archivo `.env` se excluye del control de versiones y se versiona únicamente `.env.example` con marcadores. | El repositorio no contiene `.env` |
 | 2 | Autenticación por token: cada petición transporta un token en la cabecera HTTP, cuyo SHA-256 se compara contra el hash almacenado en `usuario_api`. | CP-02 → HTTP 401 |
-| 2b | Autorización por rol: únicamente el rol `recepcion` puede crear o cancelar citas. | CP-03 → HTTP 403 |
+| 2b | Autorización por rol: `recepcion` registra y cancela citas; `medico` las cierra. | CP-03 → HTTP 403, CP-10 → HTTP 401 |
 | 3 | Cifrado en reposo con AES-256-GCM sobre DPI y teléfono. La clave reside en variable de entorno. | Descifrado verificado sobre registros reales |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256. | CP-09 → el verificador detecta la cadena rota |
 | 5 | Validación estricta de entradas y enmascaramiento del DPI en respuestas y registros. | CP-04 y CP-05 → HTTP 400 |
+| 6 | Consultas parametrizadas en los catorce nodos Postgres que reciben valores. | CP-12 → HTTP 201 con un apellido que contiene apóstrofe |
 
 ### 8.1 La bitácora encadenada
 
@@ -382,14 +438,31 @@ La comprobación puede ejecutarse en SQL comparando cada `hash_anterior` con el 
 
 > **Captura 4 — Integridad de la bitácora.** Salida del verificador antes y después de alterar manualmente un registro.
 
-### 8.2 Otras decisiones de seguridad
+### 8.2 Consultas parametrizadas
+
+Los catorce nodos Postgres que reciben valores emplean *Query Parameters* con marcadores `$1`, `$2` en lugar de interpolar las expresiones dentro de la cadena SQL. La consulta y los datos viajan por caminos distintos, de modo que el motor nunca interpreta un dato como instrucción.
+
+| Flujo | Nodos parametrizados |
+|---|:-:|
+| WF-00 | 1 |
+| WF-01 | 3 |
+| WF-02 | 3 |
+| WF-03 | 1 |
+| WF-04 | 4 |
+| WF-05 | 2 |
+| WF-06 | 0 — sus consultas no reciben valores externos |
+
+La sección 12.5 documenta cómo se demostró que la interpolación era explotable antes de esta corrección.
+
+### 8.3 Otras decisiones de seguridad
 
 - **Mensajes de rechazo genéricos.** La respuesta 401 no distingue entre token ausente, inexistente o desactivado, para no facilitar la enumeración de credenciales válidas.
-- **Publicación restringida a `127.0.0.1`.** Ningún servicio queda alcanzable desde otros equipos de la red.
+- **Publicación restringida a `127.0.0.1`.** Ningún servicio queda alcanzable desde otros equipos de la red, y Gotenberg ni siquiera publica puerto.
 - **Enmascaramiento del DPI** antes de devolverlo en la respuesta o registrarlo en la bitácora, con el formato `*********0101`.
-- **Minimización de datos en el correo:** la notificación al paciente no transporta datos identificativos ni clínicos.
+- **Minimización de datos en el correo:** la notificación al paciente no transporta datos identificativos ni clínicos, y no sale del entorno local.
+- **Custodia de la credencial SMTP de Gmail.** El nodo Send Email no admite expresiones en el campo de contraseña, de modo que la contraseña de aplicación reside en el almacén interno de n8n, cifrada con `N8N_ENCRYPTION_KEY`. Pasarla como variable de entorno la expondría en `docker inspect` y en `printenv` dentro del contenedor, de modo que el almacén es la ubicación más segura disponible.
 
-### 8.3 Incidentes de seguridad ocurridos durante el desarrollo
+### 8.4 Incidentes de seguridad ocurridos durante el desarrollo
 
 Se documentan dos exposiciones de credenciales ocurridas en el propio proceso de construcción, por su valor formativo.
 
@@ -399,18 +472,32 @@ Se documentan dos exposiciones de credenciales ocurridas en el propio proceso de
 
 **Lección adoptada.** Un secreto que llegó al historial se considera comprometido de forma permanente: reescribir la historia no revoca nada, porque quien clonó antes ya lo tiene. La respuesta correcta es rotar. Como medida preventiva, los archivos versionados llevan marcadores del tipo `PEGA_AQUI_TOKEN` y antes de cada commit se ejecuta una búsqueda de cadenas hexadecimales de sesenta y cuatro caracteres.
 
-### 8.4 Riesgo conocido y pendiente: inyección SQL
+### 8.5 Revisión de seguridad del sistema terminado
 
-Las consultas de los nodos Postgres interpolan valores en la cadena en lugar de emplear parámetros. El riesgo no es explotable en el estado actual, porque el nodo `Valida datos` acota previamente los campos: el DPI debe tener trece dígitos, el teléfono ocho, el correo un formato válido y el tipo de consulta pertenecer a una lista cerrada. Los únicos campos de texto libre son `nombre`, `apellido` y `motivo`.
+Con el sistema completo se ejecutó una revisión sobre el repositorio y su historial, buscando los valores reales de los seis secretos del `.env` en los archivos versionados y en todos los commits.
 
-Aun así, la mitigación depende de una validación previa y no de la consulta misma, lo que constituye una defensa frágil. La migración a *Query Parameters* con marcadores `$1`, `$2` está planificada para la entrega final.
+| Comprobación | Resultado |
+|---|---|
+| Secretos en archivos versionados | Cero coincidencias |
+| Secretos en el historial completo de Git | Cero coincidencias |
+| `.env` excluido por `.gitignore` | Correcto |
 
-### 8.5 Correspondencia con la rúbrica
+La revisión no encontró fugas, pero sí identificó tres puntos de mejora, todos resueltos y documentados en las secciones 8.6, 12.5 y 8.3 respectivamente.
+
+### 8.6 Acceso de los nodos a los archivos internos de n8n
+
+La variable `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES` se había declarado con valor `false` al implementar la escritura del reporte en disco. Ese valor desactiva una protección de n8n y permite que los nodos lean los archivos internos del propio motor, incluido el que contiene su llave de cifrado.
+
+No llegó a ser explotada —ningún nodo del sistema lee archivos salvo el que escribe el PDF— pero constituía una exposición innecesaria. Se eliminó la variable, con lo que recupera su valor por defecto y la protección queda activa. `N8N_RESTRICT_FILE_ACCESS_TO=/reportes` sigue permitiendo la escritura del reporte, que es la única operación de archivo que el sistema necesita.
+
+Tras el cambio se ejecutó WF-06 para confirmar que el PDF seguía generándose, evitando introducir una regresión al corregir un riesgo.
+
+### 8.7 Correspondencia con la rúbrica
 
 | Elemento exigido por la rúbrica | Capa que lo cubre |
 |---|:-:|
 | Credenciales protegidas mediante variables de entorno | Capa 1 |
-| Validación de entradas | Capa 5 |
+| Validación de entradas | Capas 5 y 6 |
 | Control de acceso | Capas 2 y 2b |
 | Cifrado de información sensible | Capa 3 |
 | Registro de auditoría (criterio de manejo de datos) | Capa 4 |
@@ -419,22 +506,22 @@ Aun así, la mitigación depende de una validación previa y no de la consulta m
 
 ## 9. Manejo de errores
 
-El manejo de errores se centraliza en WF-00, que actúa como flujo alterno de los cuatro flujos restantes.
+El manejo de errores se centraliza en WF-00, que actúa como flujo alterno de los seis flujos restantes.
 
 | Tipo de error | Tratamiento | Respuesta |
 |---|---|:-:|
 | **Token ausente o inválido** | Rechazo controlado con mensaje genérico | HTTP 401 |
-| **Rol sin autorización para la operación** | Rechazo controlado | HTTP 403 |
+| **Rol sin autorización para la operación** | Rechazo controlado | HTTP 401 o 403 |
 | **Datos que no superan la validación** | Respuesta con el detalle de los campos rechazados | HTTP 400 |
-| **Cita inexistente o no cancelable** | Rechazo controlado en WF-04 | HTTP 404 |
+| **Cita inexistente, no cancelable o no cerrable** | Rechazo controlado en WF-04 y WF-05 | HTTP 404 |
 | **Base de datos no disponible** | Captura por Error Trigger, severidad alta, notificación al administrador | — |
 | **Excepción no controlada en un nodo** | Captura por Error Trigger, payload enmascarado | — |
 
 Los cuatro primeros son rechazos previstos por el diseño y se resuelven dentro del propio flujo. Los dos últimos son fallos no previstos y activan WF-00.
 
-El mecanismo se verificó dos veces en condiciones reales: una detención deliberada de PostgreSQL durante la ejecución (CP-08) y un fallo genuino de WF-04 al violarse una restricción de unicidad, descrito en la sección 12.1. En ambos casos el error quedó registrado en `log_errores` y generó la alerta correspondiente.
+El mecanismo se verificó cuatro veces en condiciones reales: una detención deliberada de PostgreSQL durante la ejecución (CP-08), un fallo de WF-04 al violarse una restricción de unicidad (sección 12.1), un desbordamiento de longitud en el campo `motivo`, y el error de sintaxis provocado por un apóstrofe antes de parametrizar las consultas (sección 12.5). En los cuatro casos el error quedó registrado en `log_errores` y generó la alerta correspondiente.
 
-> **Captura 5 — Alerta de error.** Correo de alerta al administrador generado por WF-00 ante el fallo real de WF-04.
+> **Captura 5 — Alerta de error.** Correo de alerta al administrador recibido en Gmail, con el identificador de registro coincidente con el de `log_errores`.
 
 ---
 
@@ -451,8 +538,8 @@ La ficha del Avance 2 solicita evidenciar que la información se mantiene consis
 
 **Comprobaciones ejecutadas.**
 
-1. Se enviaron dos solicitudes con el mismo DPI. El resultado fue un único paciente con dos solicitudes asociadas, en lugar de dos pacientes duplicados.
-2. Se forzó el reprocesamiento de una cita ya notificada, devolviendo su campo `notificada` a `false`. WF-03 la procesó de nuevo y envió la notificación, pero la consulta `select count(*) from expediente where id_cita = 577` devolvió **1**, no 2. El expediente no se duplicó pese a ejecutarse dos veces la misma operación.
+1. Se enviaron dos solicitudes con el mismo DPI. El resultado fue un único paciente con dos solicitudes asociadas, en lugar de dos pacientes duplicados. La comprobación se repitió tras parametrizar las consultas, con idéntico resultado.
+2. Se forzó el reprocesamiento de una cita ya notificada, devolviendo su campo `notificada` a `false`. WF-03 la procesó de nuevo y envió la notificación, pero la consulta de conteo sobre `expediente` devolvió **1**, no 2. El expediente no se duplicó pese a ejecutarse dos veces la misma operación.
 
 La segunda comprobación es la más relevante, porque demuestra que la idempotencia no depende de que el flujo se ejecute una sola vez, sino de una restricción de la base que se cumple siempre.
 
@@ -462,7 +549,7 @@ La segunda comprobación es la más relevante, porque demuestra que la idempoten
 
 ## 11. Plan de pruebas
 
-Se definieron nueve casos que combinan entradas válidas e inválidas, conforme a la evidencia solicitada en la sección 3 de la guía. **Los nueve fueron ejecutados y superados.**
+Se definieron doce casos que combinan entradas válidas e inválidas, conforme a la evidencia solicitada en la sección 3 de la guía. **Los doce fueron ejecutados y superados.**
 
 | # | Escenario | Entrada | Resultado obtenido | Estado |
 |:-:|---|---|---|:-:|
@@ -471,16 +558,19 @@ Se definieron nueve casos que combinan entradas válidas e inválidas, conforme 
 | 3 | Autorización insuficiente | Token de rol médico creando una cita | HTTP 403 | Superado |
 | 4 | Validación de formato | DPI de 10 dígitos | HTTP 400 con detalle del campo | Superado |
 | 5 | Validación de negocio | Fecha preferida en el pasado | HTTP 400 con detalle del campo | Superado |
-| 6 | Sin disponibilidad | Solicitudes por encima de los cupos del día | Tres solicitudes en `lista_espera`, estado `en_espera` | Superado |
+| 6 | Sin disponibilidad | Solicitudes por encima de los cupos del día | Solicitudes en `lista_espera`, estado `en_espera` | Superado |
 | 7 | Reasignación | Cancelación de una cita confirmada | Cupo reasignado al siguiente en espera | Superado |
 | 8 | Caída de dependencia | Fallo de conexión a la base durante la ejecución | WF-00 registró el error y notificó al administrador | Superado |
 | 9 | Integridad de auditoría | Alteración manual de un registro | El verificador detectó la ruptura de la cadena | Superado |
+| 10 | Cierre de cita | Token de médico, cita vencida y confirmada | HTTP 200 con el resultado registrado | Superado |
+| 11 | Reporte semanal | Ejecución manual de WF-06 | PDF generado en disco y recibido por correo | Superado |
+| 12 | Inyección SQL | Apellido con apóstrofe | HTTP 201; el valor se almacena íntegro | Superado |
 
 ### 11.1 Detalle del caso 7 — Reasignación
 
-Por ser el último en cerrarse y el que más componentes involucra, se documenta su ejecución completa.
+Por ser el que más componentes involucra, se documenta su ejecución completa.
 
-**Estado previo.** La cita 36 del médico 1 estaba confirmada para el 21 de septiembre a las 08:30. Tres solicitudes (12, 13 y 14) permanecían en `lista_espera` con prioridad 5 y fecha preferida del mismo día.
+**Estado previo.** La cita 53 del médico 1 estaba confirmada para el 21 de septiembre a las 09:30. Dos solicitudes permanecían en `lista_espera` con prioridad 5 y fecha preferida del mismo día.
 
 **Operación.** Petición `POST /webhook/cancelar` con el token de recepción y el identificador de la cita.
 
@@ -491,9 +581,9 @@ Por ser el último en cerrarse y el que más componentes involucra, se documenta
   "codigo": 200,
   "estado": "reasignado",
   "mensaje": "Cita cancelada y cupo reasignado",
-  "id_cita_cancelada": 36,
-  "id_cita_nueva": 577,
-  "id_solicitud_beneficiada": 12
+  "id_cita_cancelada": 53,
+  "id_cita_nueva": 2393,
+  "id_solicitud_beneficiada": 13
 }
 ```
 
@@ -501,29 +591,47 @@ Por ser el último en cerrarse y el que más componentes involucra, se documenta
 
 | Comprobación | Resultado |
 |---|:-:|
-| Cita 36 en estado `cancelada` | Correcto |
-| Cita 577 creada en el mismo horario, estado `confirmada` | Correcto |
+| Cita 53 en estado `cancelada` | Correcto |
+| Cita 2393 creada con el mismo médico y el mismo horario | Correcto |
 | Entrada de `lista_espera` marcada como `atendida` | Correcto |
-| Solicitud 12 de `en_espera` a `asignada` | Correcto |
-| Solicitudes 13 y 14 sin alterar | Correcto |
+| Solicitud 13 de `en_espera` a `asignada` | Correcto |
+| Solicitud 14 sin alterar | Correcto |
 
-El último punto importa tanto como los anteriores: se liberó un solo cupo y se reasignó un solo cupo. La cita nueva quedó con `notificada = false` y WF-03 la notificó en su siguiente ejecución, completando la cadena cancelación → reasignación → notificación → expediente sin intervención manual.
+El último punto importa tanto como los anteriores: se liberó un solo cupo y se reasignó un solo cupo. Que la cita nueva conserve el mismo médico y el mismo horario que la cancelada es además la verificación de que los parámetros de la consulta llegaron a su columna correcta, algo que no puede comprobarse leyendo la consulta.
+
+La cita nueva quedó con `notificada = false` y WF-03 la notificó en su siguiente ejecución, completando la cadena cancelación → reasignación → notificación → expediente sin intervención manual.
 
 > **Captura 7 — Caso 7.** Respuesta del endpoint de cancelación con los tres identificadores.
 >
 > **Captura 8 — Caso 7, verificación.** Consultas mostrando el estado de las citas, la lista de espera y las solicitudes tras la reasignación.
 
-### 11.2 Reproducción de las pruebas
+### 11.2 Detalle del caso 10 — Cierre de cita
 
-Los casos 1 a 5 se ejecutan sobre el endpoint de ingesta variando un único elemento de la petición, lo que permite aislar el control que cada uno verifica. Existe una colección de Insomnia con las cinco peticiones y un entorno base donde se completan los tokens tras importarla; los tokens no se versionan.
+Se verifican los tres caminos del flujo en una sola secuencia:
 
-**Casos destinados al video de demostración:** el caso 1 corresponde al escenario normal y el caso 8 al escenario con error, ambos exigidos explícitamente por la guía. El caso 7 se propone como demostración adicional por ser el más ilustrativo del comportamiento automático del sistema.
+| Petición | Resultado esperado | Obtenido |
+|---|:-:|:-:|
+| Token de médico, cita vencida y confirmada | 200 | 200 |
+| Token de recepción sobre la misma operación | 401 | 401 |
+| Token de médico, cita de fecha futura | 404 | 404 |
+
+El segundo caso demuestra que la autorización distingue entre roles válidos: recepción es un emisor legítimo del sistema, pero no está facultado para cerrar citas. El tercero demuestra que la validación temporal opera dentro de la propia consulta y no en la lógica del flujo.
+
+> **Captura 12 — Caso 10.** Los tres caminos del flujo de cierre con sus códigos de respuesta.
+
+### 11.3 Reproducción de las pruebas
+
+Los casos 1 a 5 se ejecutan sobre el endpoint de ingesta variando un único elemento de la petición, lo que permite aislar el control que cada uno verifica. Existe una colección de Insomnia con las peticiones y un entorno base donde se completan los tokens tras importarla; los tokens no se versionan.
+
+El README documenta cada caso con su comando ejecutable. Las fechas de los ejemplos se calculan en el momento de ejecución y no se escriben de forma literal, porque la validación rechaza fechas pasadas y cualquier valor fijo caduca.
+
+**Casos destinados al video de demostración:** el caso 1 corresponde al escenario normal y el caso 8 al escenario con error, ambos exigidos explícitamente por la guía. Los casos 7 y 11 se proponen como demostración adicional por ser los más ilustrativos del comportamiento automático del sistema.
 
 ---
 
-## 12. Correcciones aplicadas en esta versión
+## 12. Defectos detectados y corregidos
 
-Durante la ejecución de las pruebas finales se detectaron tres defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
+Durante las pruebas se detectaron seis defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
 
 ### 12.1 Restricción de unicidad que no distinguía citas canceladas
 
@@ -577,6 +685,40 @@ El correo muestra ahora `21/09/2026 a las 08:30`.
 
 > **Captura 9 — Antes y después.** Bandeja de MailHog mostrando simultáneamente la notificación con formato ISO en UTC y la corregida en hora local.
 
+### 12.4 Ciclo de vida de la cita incompleto
+
+**Síntoma.** Al diseñar el reporte de indicadores se advirtió que las consultas sobre citas atendidas y ausentes devolverían cero de forma permanente.
+
+**Causa.** El modelo de datos define cuatro estados para la entidad `cita` —confirmada, atendida, cancelada y ausente— pero ninguna operación automatizada producía los dos últimos. El diagrama de estados declaraba un ciclo de vida que el sistema no completaba.
+
+Es un defecto que la implementación por sí sola no revela: cada flujo hacía correctamente lo suyo, y solo al intentar medir el sistema en conjunto quedó expuesto el hueco.
+
+**Corrección.** Se construyó WF-05, un flujo de cierre que permite al médico marcar una cita como atendida o ausente. Además de completar el ciclo, resolvió una asimetría del modelo de acceso: el rol `medico` estaba definido en la tabla `usuario_api` y se usaba en las pruebas de autorización, pero no disponía de ninguna operación propia. Existía únicamente para ser rechazado.
+
+### 12.5 Inyección SQL demostrada y corregida
+
+**Síntoma.** Una solicitud con el apellido `O'Connor` —entrada perfectamente legítima— devolvió HTTP 200 con el cuerpo vacío en lugar del 201 esperado.
+
+**Causa.** Las consultas de los nodos Postgres interpolaban los valores dentro de la cadena SQL. El apóstrofe del apellido cerró la cadena de texto y PostgreSQL interpretó el resto como instrucción, registrando en `log_errores` el mensaje `Syntax error at line 7 near "Connor"` en el nodo `Guarda solicitud`.
+
+**Alcance del problema.** El defecto tiene dos caras. Desde la seguridad, si un apóstrofe llega al motor sin escapar, un atacante puede cerrar la cadena y escribir SQL propio; la validación previa solo acotaba DPI, teléfono, correo y tipo de consulta, dejando `nombre`, `apellido` y `motivo` como texto libre. Desde el funcionamiento, un paciente apellidado O'Connor, D'Angelo o Ma'at sencillamente no podía registrarse.
+
+**Corrección.** Los catorce nodos Postgres que reciben valores se migraron a *Query Parameters* con marcadores `$1`, `$2`. La consulta y los datos viajan por caminos separados y el motor nunca confunde uno con otro.
+
+**Verificación.** La misma petición que antes fallaba devolvió HTTP 201, y una consulta directa confirmó que el apellido quedó almacenado como `O'Connor`, sin caracteres de escape ni mutilación.
+
+**Nota sobre el diseño de la prueba.** Se eligió deliberadamente un apóstrofe en un apellido y no una carga destructiva. Una sentencia de borrado habría demostrado lo mismo a costa de destruir la tabla de errores, que contiene la evidencia del proyecto. El apellido prueba la vulnerabilidad y además expone un fallo funcional que una carga maliciosa no habría revelado.
+
+### 12.6 Parámetro vacío tras la parametrización
+
+**Síntoma.** Después de parametrizar WF-01, una petición sin token devolvió HTTP 200 con el cuerpo vacío en lugar del 401 esperado. El camino exitoso y el de rol no autorizado seguían funcionando.
+
+**Causa.** El nodo que calcula el hash del token devolvía una cadena vacía cuando no venía cabecera. Con la consulta interpolada eso producía una comparación contra cadena vacía, válida y sin resultados. Con parámetros, el valor vacío hace que n8n no envíe el parámetro, y PostgreSQL rechaza la consulta con `there is no parameter $1`.
+
+**Corrección.** Los nodos que preparan los parámetros devuelven valores centinela en lugar de cadenas vacías: `sin-token` para el hash ausente, `0` para un identificador de cita faltante e `invalido` para un resultado de cierre no admitido. Ninguno puede coincidir con un valor legítimo, de modo que la consulta se ejecuta, no encuentra coincidencias y el flujo responde con el rechazo que corresponde.
+
+**Observación metodológica.** Este defecto lo introdujo una corrección de seguridad, y solo apareció porque se probaron los caminos de rechazo y no únicamente el exitoso. Es el argumento más concreto a favor de verificar siempre las tres respuestas posibles de un endpoint y no solo la que confirma que funciona.
+
 ---
 
 ## 13. Estructura del repositorio
@@ -584,7 +726,7 @@ El correo muestra ahora `21/09/2026 a las 08:30`.
 ```
 ProyectoSIGAC/
 ├── README.md                     Instalación, ejecución, uso y pruebas
-├── docker-compose.yml            Orquestación de los contenedores
+├── docker-compose.yml            Orquestación de los cuatro contenedores
 ├── .env                          Secretos reales — no versionado
 ├── .env.example                  Plantilla de variables, con marcadores
 ├── .gitignore                    Excluye .env y artefactos generados
@@ -596,19 +738,23 @@ ProyectoSIGAC/
 │   ├── WF-01_ingesta.json
 │   ├── WF-02_clasificacion.json
 │   ├── WF-03_notificacion.json
-│   └── WF-04_reasignacion.json
+│   ├── WF-04_reasignacion.json
+│   ├── WF-05_cierre.json
+│   └── WF-06_reporte.json
 ├── scripts/
 │   ├── verificar_cadena.js       Validador de la bitácora encadenada
 │   └── verificar.sh
-├── docs/                         Documento técnico y diagramas
-└── reportes/                     Salida de WF-05, excluida del control de versiones
+├── docs/
+│   ├── documento-tecnico.md      Este documento
+│   └── uml/                      Diagramas .puml y PDF exportado
+└── reportes/                     Salida de WF-06, excluida del control de versiones
 ```
 
 ### 13.1 Convenciones adoptadas
 
 **Nombres de archivo.** Prefijo numérico cuando el orden de ejecución importa, guiones bajos en lugar de espacios y ausencia de tildes. Los flujos exportados siguen el patrón `WF-NN_concepto.json`, ya que n8n los descarga con el nombre del flujo y espacios intercalados.
 
-**Commits.** Uno por bloque funcional cerrado y probado, con prefijo de gitmoji que identifica su naturaleza. El historial acumula dieciséis commits.
+**Commits.** Uno por bloque funcional cerrado y probado, con prefijo de gitmoji que identifica su naturaleza. El historial acumula veintisiete commits.
 
 **Verificación previa al commit.** Búsqueda de cadenas hexadecimales de sesenta y cuatro caracteres en los archivos versionados. Los flujos exportados contienen legítimamente una: el identificador de instancia de n8n, idéntico en todos ellos.
 
@@ -634,14 +780,14 @@ La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado
 
 | # | Requisito | Cómo se cumple |
 |:-:|---|---|
-| 1 | n8n ejecutándose en entorno local, ideal con Docker | Tres contenedores orquestados con Compose |
+| 1 | n8n ejecutándose en entorno local, ideal con Docker | Cuatro contenedores orquestados con Compose |
 | 2 | Persistencia local de datos | PostgreSQL 16, diez tablas |
-| 3 | Mínimo tres workflows: ingesta, procesamiento y salida | Cinco flujos: WF-00 a WF-04 |
-| 4 | Al menos seis nodos distintos | Diez tipos de nodo |
-| 5 | Manejo de errores: Error Trigger y registro de errores | WF-00, verificado con dos fallos reales |
-| 6 | Evidencia de pruebas con entradas válidas e inválidas | Nueve casos, nueve superados |
+| 3 | Mínimo tres workflows: ingesta, procesamiento y salida | Siete flujos: WF-00 a WF-06 |
+| 4 | Al menos seis nodos distintos | Doce tipos de nodo |
+| 5 | Manejo de errores: Error Trigger y registro de errores | WF-00, verificado con cuatro fallos reales |
+| 6 | Evidencia de pruebas con entradas válidas e inválidas | Doce casos, doce superados |
 | 7 | Bitácora de ejecución | Cadena de hashes verificable |
-| 8 | Ciberseguridad | Cinco capas implementadas |
+| 8 | Ciberseguridad | Seis capas implementadas |
 
 **Los ocho mínimos están cumplidos.**
 
@@ -649,10 +795,10 @@ La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado
 
 | Elemento solicitado | Estado |
 |---|---|
-| Un proceso automatizado con n8n funcionando | Cinco flujos publicados y operativos |
+| Un proceso automatizado con n8n funcionando | Siete flujos publicados y operativos |
 | Evidencia de manejo de errores y validaciones | WF-00, `log_errores` y casos 2, 4, 5 y 8 |
-| Evidencia de la medida de ciberseguridad implementada | Cinco capas, sección 8 |
-| Evidencia de pruebas realizadas | Nueve casos documentados, sección 11 |
+| Evidencia de la medida de ciberseguridad implementada | Seis capas, sección 8 |
+| Evidencia de pruebas realizadas | Doce casos documentados, sección 11 |
 | Que la información se mantiene consistente tras varias operaciones | Sección 10, con dos comprobaciones ejecutadas |
 | Lo que falta por terminar antes de la entrega final | Sección 15 |
 
@@ -662,11 +808,9 @@ La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado
 
 | # | Tarea | Qué aporta |
 |:-:|---|---|
-| 1 | Parametrizar las consultas SQL con marcadores `$1`, `$2` | Cierra el riesgo descrito en la sección 8.4 |
-| 2 | Implementar WF-05 e incorporar el contenedor Gotenberg | Sexto flujo y dos tipos de nodo adicionales |
-| 3 | Añadir `sql/03_verificacion.sql` | Consultas de comprobación reproducibles |
-| 4 | Guardar los diagramas de arquitectura y del flujo principal en `docs/` | Entregable exigido por la sección 4 de la guía |
-| 5 | Grabar el video de demostración de 5 a 8 minutos | Entregable exigido por la sección 4 de la guía |
+| 1 | Grabar el video de demostración de 5 a 8 minutos | Entregable exigido por la sección 4 de la guía |
+| 2 | Añadir `sql/03_verificacion.sql` | Consultas de comprobación reproducibles |
+| 3 | Mockups de interfaz para el rol de recepción | Anexo de diseño de una posible implementación futura, fuera del alcance comprometido |
 
 ---
 
@@ -676,12 +820,12 @@ La rúbrica de la sección 11 de la guía asigna quince puntos en modalidad indi
 
 | Criterio evaluado | Pts. | Elemento que lo cubre |
 |---|:-:|---|
-| Que el proceso automatizado funcione y resuelva el problema | 4 | Cinco flujos operativos y diez tipos de nodo, sobre un mínimo exigido de tres flujos y seis nodos |
+| Que el proceso automatizado funcione y resuelva el problema | 4 | Siete flujos operativos y doce tipos de nodo, sobre un mínimo exigido de tres flujos y seis nodos |
 | Buen diseño técnico | 3 | Arquitectura en contenedores con publicación restringida, modelo de datos normalizado de diez tablas con restricciones declaradas en la base, y manejo de errores centralizado |
-| Ciberseguridad | 3 | Cinco capas que cubren validación, control de acceso y cifrado, con los incidentes del desarrollo documentados y remediados |
+| Ciberseguridad | 3 | Seis capas que cubren validación, control de acceso, cifrado y parametrización, con los incidentes del desarrollo documentados y remediados |
 | Manejo de errores y de los datos | 2 | WF-00, tabla `log_errores`, bitácora encadenada por hash y consistencia verificada tras operaciones repetidas |
 | Documentación clara | 2 | Este documento y el README de instalación, uso y pruebas |
-| Evidencia y que se pueda reproducir | 1 | Nueve casos de prueba documentados; el entorno completo se levanta con un solo comando |
+| Evidencia y que se pueda reproducir | 1 | Doce casos de prueba documentados con sus comandos; el entorno completo se levanta con un solo comando |
 | **TOTAL** | **15** | |
 
 ---
@@ -692,9 +836,9 @@ Al ser modalidad individual, aplican únicamente los cuatro primeros.
 
 | Entregable | Formato | Estado |
 |---|:-:|---|
-| Repositorio Git con README, docker-compose, `workflows/` y `docs/` | GitHub | En curso — falta poblar `docs/` |
-| Documento técnico de 8 a 12 páginas | Word o PDF | Este documento, versión 3 |
-| Diagrama de arquitectura y del flujo principal | Imagen o PDF | Elaborados, pendientes de guardar en `docs/` |
+| Repositorio Git con README, docker-compose, `workflows/` y `docs/` | GitHub | Completo |
+| Documento técnico de 8 a 12 páginas | Word o PDF | Este documento, versión 4 |
+| Diagrama de arquitectura y del flujo principal | Imagen o PDF | En `docs/uml/` |
 | Video de demostración de 5 a 8 minutos, con presencia en cámara | Enlace de Drive | Pendiente |
 
 ---
@@ -705,8 +849,13 @@ Al ser modalidad individual, aplican únicamente los cuatro primeros.
 |:-:|---|---|
 | v1 | 7 de agosto de 2026 | Versión inicial presentada en el Avance 1. Diseño del sistema, arquitectura propuesta y flujos previstos. |
 | v2 | Agosto de 2026 | Ampliación del modelo de datos y de las capas de ciberseguridad. |
-| **v3** | **18 de septiembre de 2026** | Actualización para el Avance 2. Se corrige el número de flujos (de seis previstos a cinco implementados) y de tipos de nodo (de quince a diez). Se documenta el cifrado AES-256-GCM efectivamente implementado y la coexistencia con el formato anterior. Se actualiza el plan de pruebas de seis a nueve casos superados. Se incorpora la sección 10 de consistencia con comprobaciones ejecutadas, y la sección 12 con los tres defectos detectados y corregidos. Se ajusta la arquitectura a tres contenedores. Se corrige la estructura del repositorio y se elimina la carpeta `evidencias/`, cuyo contenido pasa a integrarse en este documento. |
+| v3 | 18 de septiembre de 2026 | Actualización para el Avance 2. Se corrige el número de flujos (de seis previstos a cinco implementados) y de tipos de nodo (de quince a diez). Se documenta el cifrado AES-256-GCM y la coexistencia con el formato anterior. Se actualiza el plan de pruebas a nueve casos superados. Se incorporan la sección de consistencia y la de defectos corregidos. |
+| **v4** | **18 de octubre de 2026** | Siete flujos operativos con la incorporación de WF-05 (cierre de cita) y WF-06 (reporte semanal en PDF). Cuarto contenedor, Gotenberg. Doce tipos de nodo. Se corrige la exclusión de alcance relativa a servicios externos de correo y se documenta la separación entre notificaciones locales y alertas externas (sección 4.3). Se añade la sexta capa de ciberseguridad: consultas parametrizadas en los catorce nodos que reciben valores. Se incorporan la revisión de seguridad del sistema terminado (8.5), el riesgo de acceso a archivos internos de n8n y su corrección (8.6), y tres defectos nuevos: el ciclo de vida incompleto (12.4), la inyección SQL demostrada y corregida (12.5) y el parámetro vacío introducido por esa misma corrección (12.6). El plan de pruebas pasa de nueve a doce casos. |
 
-### 18.1 Nota sobre las correcciones de la v3
+### 18.1 Nota sobre la evolución del documento
 
-Varias de las modificaciones de esta versión corrigen afirmaciones de la v2 que el diseño preliminar daba por hechas y la implementación no confirmó: seis flujos que hoy son cinco, quince tipos de nodo que son diez, y cuatro campos cifrados de los que operan dos. Se declaran explícitamente en lugar de sustituirse en silencio, porque la distancia entre el diseño previsto y el sistema construido es en sí misma un resultado del análisis.
+Cada versión de este documento ha corregido afirmaciones de la anterior que el diseño daba por hechas y la implementación no confirmó. La v3 redujo seis flujos a cinco y quince tipos de nodo a diez. La v4 vuelve a subir esas cifras, pero por una razón distinta: lo que en septiembre estaba pendiente se construyó.
+
+Dos correcciones de esta versión merecen señalarse por su naturaleza. La primera es la exclusión de alcance sobre proveedores externos de correo, que dejó de ser cierta y se sustituye por una descripción de qué sale del entorno local y qué no. La segunda es el riesgo de inyección SQL, que las versiones anteriores declaraban como pendiente y aceptable: resultó ser explotable con una entrada tan común como un apellido con apóstrofe, y está corregido.
+
+Se declaran explícitamente en lugar de sustituirse en silencio, porque la distancia entre lo que un documento afirma y lo que el sistema hace es, en sí misma, un resultado del análisis.
