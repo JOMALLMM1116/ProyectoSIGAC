@@ -181,6 +181,121 @@ values
      repeat('0', 64),
      encode(sha256('genesis'::bytea), 'hex'));
 
+
+-- ============================================================
+-- ============================================================
+--
+--   CAMBIOS Y ALTERACIONES POSTERIORES
+--   Octubre de 2026
+--
+--   Todo lo que sigue se agrego despues de la version inicial
+--   del esquema. Se mantiene separado y no integrado arriba,
+--   para que el historial del diseno quede legible: lo de
+--   arriba es lo que se penso en agosto, lo de abajo es lo que
+--   el analisis por roles hizo evidente en octubre.
+--
+-- ============================================================
+-- ============================================================
+
+
+-- ------------------------------------------------------------
+-- CAMBIO 1 - PREFERENCIAS DEL PACIENTE
+--
+-- Hasta aqui el sistema decidia por completo el medico y el
+-- horario de cada cita. El paciente solo elegia la fecha.
+--
+-- En la practica eso significa que el sistema asigna el primer
+-- cupo libre del dia, de modo que todas las citas empiezan a
+-- las 08:00 hasta llenar la manana. Un paciente que trabaja y
+-- solo puede por la tarde recibe una cita a las 08:30, no puede
+-- asistir, y el sistema registra una ausencia que el mismo
+-- provoco.
+--
+-- Estos cuatro campos permiten que el paciente exprese lo que
+-- si tiene decidido. Los cuatro son opcionales a proposito:
+-- su ausencia es lo que le indica al sistema que debe decidir
+-- el. El principio es que el sistema resuelve unicamente lo
+-- que el paciente no resolvio.
+-- ------------------------------------------------------------
+
+alter table solicitud_cita
+  add column franja_preferida        varchar(12) not null default 'indiferente',
+  add column hora_solicitada         time        null,
+  add column especialidad_solicitada varchar(60) null,
+  add column id_medico_solicitado    int         null;
+
+-- franja_preferida lleva check porque sus valores son cerrados y
+-- no van a cambiar. especialidad_solicitada no lo lleva: un
+-- catalogo de especialidades crece, y un check se rompe apenas
+-- se agrega una. Esa validacion vive en WF-01, contrastando
+-- contra las especialidades que existen en la tabla medico.
+alter table solicitud_cita
+  add constraint cksol_franja
+    check (franja_preferida in ('manana', 'tarde', 'indiferente')),
+  add constraint fksol_medico_solicitado
+    foreign key (id_medico_solicitado) references medico(id);
+
+-- indice para la consulta de huecos libres, que la recepcionista
+-- ejecuta mientras negocia un horario con el paciente al telefono
+create index ixsolicitud_fecha_franja
+  on solicitud_cita (fecha_preferida, franja_preferida)
+  where estado in ('pendiente', 'en_espera');
+
+
+-- ------------------------------------------------------------
+-- CAMBIO 2 - NOTA CLINICA
+--
+-- El planteamiento del problema declara que no existe
+-- trazabilidad sobre quien consulta o modifica un expediente.
+-- Hasta aqui esa promesa no se cumplia: el sistema abre un
+-- expediente por cada cita y lo deja vacio para siempre, de
+-- modo que no hay nada que consultar ni modificar.
+--
+-- Esta tabla es el contenido clinico que faltaba. Cada entrada
+-- la escribe un medico, va cifrada con AES-256-GCM igual que el
+-- DPI, y queda firmada con quien la escribio y cuando.
+--
+-- INMUTABLE POR DISENO. Ningun flujo ejecuta update ni delete
+-- sobre esta tabla. Un diagnostico no se corrige: se agrega otro
+-- que lo matiza o lo contradice, y ambos quedan. Es como
+-- funciona un expediente real, y es lo que hace legible el
+-- recorrido de un paciente entre varios medicos.
+--
+-- La garantia no esta declarada en la base, porque PostgreSQL
+-- no permite prohibir el update sin un trigger. Esta en que
+-- ninguna operacion la modifica. Es una decision, no un
+-- descuido.
+-- ------------------------------------------------------------
+
+create table nota_clinica(
+    id                    int          generated always as identity primary key,
+    id_expediente         int          not null,
+    id_paciente           int          not null,
+    id_cita               int          not null,
+    id_medico             int          not null,
+    diagnostico_cifrado   text         null,
+    indicaciones_cifrado  text         null,
+    creado_en             timestamptz  not null default now(),
+    constraint fknota_expediente foreign key (id_expediente) references expediente(id),
+    constraint fknota_paciente   foreign key (id_paciente)   references paciente(id),
+    constraint fknota_cita       foreign key (id_cita)       references cita(id),
+    constraint fknota_medico     foreign key (id_medico)     references medico(id)
+);
+
+-- la consulta que importa es el historial de un paciente en
+-- orden cronologico: es lo que un medico lee antes de entrar a
+-- la consulta, y lo que permite que un especialista vea lo que
+-- el medico general diagnostico e indico.
+create index ixnota_paciente on nota_clinica (id_paciente, creado_en);
+
+-- Los dos campos cifrados de la tabla expediente quedan nulos de
+-- forma permanente. El diseno original los contemplaba, y el
+-- modelo evoluciono hacia notas multiples por paciente. Se dejan
+-- declarados en lugar de eliminarse, porque explican la historia
+-- del diseno: expediente sigue siendo el registro de que el
+-- expediente se abrio, y nota_clinica es su contenido.
+
+
 -- VERIFICACION
 
 select table_name
@@ -188,4 +303,15 @@ from information_schema.tables
 where table_schema = 'public'
 order by table_name;
 
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_name = 'solicitud_cita'
+order by ordinal_position;
+
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_name = 'nota_clinica'
+order by ordinal_position;
+
 select * from bitacora_auditoria;
+
