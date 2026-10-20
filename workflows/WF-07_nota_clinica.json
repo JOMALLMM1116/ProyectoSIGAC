@@ -604,7 +604,10 @@
     "availableInMCP": false,
     "timeSavedMode": "fixed",
     "errorWorkflow": "YaUUbcxLe9az2HoG",
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
   },
   "versionId": "46a0e2d0-7423-4857-9c2d-7a04db2d3089",
   "meta": {
