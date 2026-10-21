@@ -1,0 +1,599 @@
+{
+  "name": "WF-09 Administracion de personas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7b2f5ef8-7f0d-4166-aa53-e5c7e6d2a163",
+      "name": "Webhook",
+      "webhookId": "8949e923-d936-4f58-a03d-ca249a50e415"
+    },
+    {
+      "parameters": {
+        "jsCode": "// lee el token de la cabecera y calcula su sha-256.\n// nunca se compara el token en claro contra la base:\n// se compara hash contra hash.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\n// si no viene token se usa un centinela en lugar de cadena vacia.\n// con la consulta parametrizada, un valor vacio hace que n8n no envie\n// el parametro y PostgreSQL rechaza la consulta. 'sin-token' nunca\n// puede coincidir con un sha-256, que solo contiene hexadecimales.\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : 'sin-token';\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    tiene_token: token.length > 0,\n    datos: cuerpo\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "6b27e418-ae80-420e-b755-b9941d386167",
+      "name": "Hash del token"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60d96e9d-4d3a-4e85-9ead-8dad19171458",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        0
+      ],
+      "id": "6ec80259-2a4c-4585-a031-2ca15cbbad01",
+      "name": "¿Token válido?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// valida la peticion de administracion antes de tocar la base.\n// el cuerpo trae siempre accion y entidad; el resto de campos\n// depende de la combinacion.\n//\n//   agregar     medico, recepcionista       nombre (+ especialidad y colegiado si es medico)\n//   desactivar  paciente, medico, recepcionista   id\n//   dar_baja    paciente, medico, recepcionista   id\n//   reactivar   paciente, medico, recepcionista   id\n//\n// el paciente no se agrega aqui: nace en WF-01 con su primera\n// solicitud, que es donde se valida y cifra su DPI.\nconst datos = $('Hash del token').first().json.datos || {};\nconst errores = [];\n\nconst acciones  = ['agregar', 'desactivar', 'dar_baja', 'reactivar'];\nconst entidades = ['paciente', 'medico', 'recepcionista'];\n\nconst accion  = String(datos.accion  || '').trim().toLowerCase();\nconst entidad = String(datos.entidad || '').trim().toLowerCase();\n\nif (!acciones.includes(accion)) {\n  errores.push('La accion debe ser agregar, desactivar, dar_baja o reactivar');\n}\nif (!entidades.includes(entidad)) {\n  errores.push('La entidad debe ser paciente, medico o recepcionista');\n}\n\n// ---- agregar ----\nlet nombre = null;\nlet especialidad = null;\nlet colegiado = null;\n\nif (accion === 'agregar') {\n  if (entidad === 'paciente') {\n    errores.push('Los pacientes se registran con su primera solicitud de cita, no desde administracion');\n  }\n\n  if (entidad === 'medico' || entidad === 'recepcionista') {\n    nombre = String(datos.nombre || '').trim() || null;\n    if (!nombre) {\n      errores.push('Falta el campo nombre');\n    } else if (nombre.length > 120) {\n      errores.push('El nombre no puede exceder 120 caracteres');\n    }\n  }\n\n  if (entidad === 'medico') {\n    especialidad = String(datos.especialidad || '').trim() || null;\n    if (!especialidad) {\n      errores.push('Falta el campo especialidad');\n    } else if (especialidad.length > 60) {\n      errores.push('La especialidad no puede exceder 60 caracteres');\n    }\n\n    // el colegiado es unico en la tabla medico. aqui solo se valida\n    // la forma; si ya existe, lo detecta el insert y responde 409.\n    colegiado = String(datos.colegiado || '').trim() || null;\n    if (!colegiado) {\n      errores.push('Falta el campo colegiado');\n    } else if (!/^[A-Za-z0-9-]{1,20}$/.test(colegiado)) {\n      errores.push('El colegiado debe tener hasta 20 letras, digitos o guiones');\n    }\n  }\n}\n\n// ---- desactivar, dar_baja, reactivar ----\n// el id debe ser un entero positivo. aqui se rechaza con 400 en lugar\n// de usar el centinela 0 de WF-04 y WF-05, porque este flujo ya tiene\n// su propio rechazo de datos.\nlet id = null;\nif (['desactivar', 'dar_baja', 'reactivar'].includes(accion)) {\n  id = Number(datos.id);\n  if (!Number.isInteger(id) || id < 1) {\n    errores.push('El id debe ser un entero positivo');\n    id = null;\n  }\n}\n\n// la ruta es la salida que tomara el Switch. desactivar y dar_baja\n// comparten camino: solo difieren en la bandera baja, que decide si\n// se escribe baja_en.\nlet ruta = null;\nif (errores.length === 0) {\n  const tramo = accion === 'agregar'   ? 'agregar'\n              : accion === 'reactivar' ? 'reactivar'\n              : 'estado';\n  ruta = entidad + '_' + tramo;\n}\n\nreturn [{\n  json: {\n    valido: errores.length === 0,\n    errores: errores,\n    rol: $('Verifica token').first().json.rol,\n    ruta: ruta,\n    accion: accion,\n    entidad: entidad,\n    id: id,\n    baja: accion === 'dar_baja',\n    nombre: nombre,\n    especialidad: especialidad,\n    colegiado: colegiado\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -112
+      ],
+      "id": "92702a49-6050-489b-b853-e493078628a1",
+      "name": "Valida datos"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select rol from usuario_api where token_hash = $1 and activo = true;",
+        "options": {
+          "queryReplacement": "={{ $json.token_hash }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        416,
+        0
+      ],
+      "id": "0ece1e91-8bd4-431e-a6a7-0b67ec1246ca",
+      "name": "Verifica token",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9f0a99c3-24d1-4b3c-9c52-0fdbec72e9a4",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1376,
+        -112
+      ],
+      "id": "72c28af8-d965-44d8-8e8d-d7bf13273ec9",
+      "name": "¿Datos válidos?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { codigo: 401, estado: 'rechazado', mensaje: 'No autorizado' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        256
+      ],
+      "id": "1168cdda-14ce-4ae3-a846-6eb08ed8a7c7",
+      "name": "Rechazo 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { codigo: 403, estado: 'rechazado', mensaje: 'Operacion no permitida para este rol' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        112
+      ],
+      "id": "3aa1b39b-d7df-44af-8779-b9f83545d371",
+      "name": "Rechazo 403"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { codigo: 400, estado: 'rechazado', mensaje: 'Datos invalidos', errores: $input.first().json.errores } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        32
+      ],
+      "id": "c3f7fdc6-01ce-4ef1-a2db-6def05bd8ba8",
+      "name": "Rechazo 400"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.codigo || 200 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2896,
+        480
+      ],
+      "id": "9aa732a7-cba2-41c7-aab8-3ab91349a506",
+      "name": "Respuesta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3b80207f-2cea-43dd-8aee-5edc067c9930",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "admin",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -96
+      ],
+      "id": "d5c8d7b3-c480-4d29-b217-d3e4ca7ac7c8",
+      "name": "¿Es admin?"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "recepcionista_agregar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "6f45b8d7-2f39-42ad-9d86-2d9a22f5dd61"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "recepcionista_agregar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ed4928a4-00ce-43c9-90d5-0bb1bb222946",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "recepcionista_estado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "recepcionista_estado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "43aab171-6602-4f56-8df9-4090c624d098",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "recepcionista_reactivar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "recepcionista_reactivar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c214233f-b4d5-4b60-81cb-84e2fa553ec9",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "paciente_estado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "paciente_estado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cee842ea-45bc-4a89-877e-e77d52f63a26",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "paciente_reactivar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "paciente_reactivar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "dd361d96-5ade-4bc0-827e-b63bf6fcd0ec",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "medico_agregar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "medico_agregar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "10e28058-fd6a-4ec2-b1ff-f47815c6d73f",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "medico_estado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "medico_estado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a33dba5a-6967-4b78-a16c-2146b9421800",
+                    "leftValue": "={{ $json.ruta }}",
+                    "rightValue": "medico_reactivar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "medico_reactivar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1616,
+        -384
+      ],
+      "id": "a4b488fc-39ab-41be-b09f-c8c85dccf89a",
+      "name": "Ruta"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Hash del token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash del token": {
+      "main": [
+        [
+          {
+            "node": "Verifica token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Es admin?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica token": {
+      "main": [
+        [
+          {
+            "node": "¿Token válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valida datos": {
+      "main": [
+        [
+          {
+            "node": "¿Datos válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos válidos?": {
+      "main": [
+        [
+          {
+            "node": "Ruta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 400": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 403": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 401": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es admin?": {
+      "main": [
+        [
+          {
+            "node": "Valida datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
+  },
+  "versionId": "37fcc6e1-b8f5-4812-be32-47b88fdee003",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
+  },
+  "nodeGroups": [],
+  "id": "HitTybKazg7zz0DO",
+  "tags": []
+}
