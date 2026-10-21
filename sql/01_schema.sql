@@ -385,3 +385,73 @@ alter table usuario_api
 create unique index uqusuario_medico_activo
   on usuario_api (id_medico)
   where activo;
+
+
+-- ------------------------------------------------------------
+-- CAMBIO 5 - ADMINISTRACION DE PERSONAS
+--
+-- Hasta aqui el rol admin solo recibia alertas y reportes. Dar
+-- de alta a un medico, suspender a un paciente o retirar a una
+-- recepcionista se hacia a mano en la base, sin validacion ni
+-- registro en la bitacora.
+--
+-- Tres estados posibles para cada persona:
+--   activo    activo = true,  baja_en nulo
+--   inactivo  activo = false, baja_en nulo     (reversible)
+--   baja      activo = false, baja_en con fecha (definitiva)
+--
+-- La baja es logica y no un delete. Un paciente con citas tiene
+-- expediente y notas clinicas inmutables, y la bitacora guarda
+-- el id de esas filas. Borrarlo romperia las llaves foraneas o
+-- dejaria eslabones de la cadena apuntando a nada.
+--
+-- Se conserva el booleano activo en lugar de reemplazarlo por un
+-- campo estado, para no romper los flujos que ya lo leen.
+--
+-- Que la baja sea irreversible no esta declarado en la base:
+-- requeriria un trigger. Lo garantiza el flujo de administracion,
+-- que rechaza reactivar a quien tiene baja_en. Misma decision que
+-- la inmutabilidad de nota_clinica.
+-- ------------------------------------------------------------
+
+alter table paciente
+  add column baja_en timestamptz null;
+
+alter table medico
+  add column baja_en timestamptz null;
+
+-- una persona dada de baja no puede seguir activa
+alter table paciente
+  add constraint ckpaciente_baja check (baja_en is null or not activo);
+
+alter table medico
+  add constraint ckmedico_baja check (baja_en is null or not activo);
+
+-- hasta aqui la recepcionista no existia como persona: era solo
+-- una fila de usuario_api con rol recepcion. No habia a quien
+-- suspender, solo un token. Esta tabla le da identidad, con la
+-- misma forma que medico.
+create table recepcionista(
+    id         int          generated always as identity primary key,
+    nombre     varchar(120) not null,
+    activo     boolean      not null default true,
+    baja_en    timestamptz  null,
+    creado_en  timestamptz  not null default now(),
+    constraint ckrecepcionista_baja check (baja_en is null or not activo)
+);
+
+-- mismo patron que el cambio 4: el token identifica a la persona
+alter table usuario_api
+  add column id_recepcionista int null;
+
+alter table usuario_api
+  add constraint fkusuario_recepcionista
+    foreign key (id_recepcionista) references recepcionista(id);
+
+alter table usuario_api
+  add constraint ckusuario_recepcionista
+    check (id_recepcionista is null or rol = 'recepcion');
+
+create unique index uqusuario_recepcionista_activo
+  on usuario_api (id_recepcionista)
+  where activo;
