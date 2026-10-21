@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// misma autenticacion que los demas flujos: se compara hash\n// contra hash, nunca el token en claro.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : 'sin-token';\n\n// solo se aceptan estos dos resultados de cierre\nconst resultado = ['atendida', 'ausente'].includes(cuerpo.resultado)\n  ? cuerpo.resultado\n  : null;\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    id_cita: cuerpo.id_cita || 0,\n    resultado: resultado || 'invalido'\n  }\n}];"
+        "jsCode": "// misma autenticacion que los demas flujos: se compara hash\n// contra hash, nunca el token en claro.\nconst crypto = require('crypto');\n\nconst cabeceras = $input.first().json.headers || {};\nconst cuerpo    = $input.first().json.body    || {};\n\nconst token = cabeceras['x-sigac-token'] || '';\n\nconst tokenHash = token\n  ? crypto.createHash('sha256').update(token).digest('hex')\n  : 'sin-token';\n\n// solo se aceptan estos dos resultados de cierre\nconst resultado = ['atendida', 'ausente'].includes(cuerpo.resultado)\n  ? cuerpo.resultado\n  : null;\n\n// id_cita debe ser un entero positivo. cualquier otra cosa (\"abc\",\n// \"12.5\", true) se reemplaza por el centinela 0: ninguna cita tiene\n// id 0, asi que termina en el Rechazo 404. antes un valor no numerico\n// llegaba a la consulta, el ::int fallaba y el error caia en WF-00.\nconst valorCita = String(cuerpo.id_cita ?? '').trim();\nconst idCita = /^[1-9]\\d*$/.test(valorCita) ? Number(valorCita) : 0;\n\nreturn [{\n  json: {\n    token_hash: tokenHash,\n    id_cita: idCita,\n    resultado: resultado || 'invalido'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -105,7 +105,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "update cita\nset estado = $1\nwhere id = $2::int\n  and estado = 'confirmada'\n  and fecha_hora <= now()\nreturning id as id_cita, id_medico, estado, fecha_hora;",
+        "query": "update cita\nset estado = $1\nwhere id = $2::int\n  and estado = 'confirmada'\n  and fecha_hora <= now()\n  and $1 in ('atendida', 'ausente')\nreturning id as id_cita, id_medico, estado, fecha_hora;",
         "options": {
           "queryReplacement": "={{ $('Hash del token').first().json.resultado }}, {{ $('Hash del token').first().json.id_cita }}"
         }
@@ -329,7 +329,7 @@
     "errorWorkflow": "YaUUbcxLe9az2HoG",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "186c8b06-49cd-431c-886d-59539917a4b0",
+  "versionId": "5ef3f39a-cca7-4a5e-b13a-c9c9e31f8512",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

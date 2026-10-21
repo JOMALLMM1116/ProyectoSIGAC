@@ -311,7 +311,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { codigo: 401, mensaje: 'No autorizado' } }];"
+        "jsCode": "return [{ json: { codigo: 401, estado: 'rechazado', mensaje: 'No autorizado' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -324,7 +324,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { codigo: 403, mensaje: 'Operacion no permitida para este rol' } }];"
+        "jsCode": "return [{ json: { codigo: 403, estado: 'rechazado', mensaje: 'Operacion no permitida para este rol' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -337,7 +337,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { codigo: 400, mensaje: 'Datos invalidos', errores: $input.first().json.errores } }];"
+        "jsCode": "return [{ json: { codigo: 400, estado: 'rechazado', mensaje: 'Datos invalidos', errores: $input.first().json.errores } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -350,7 +350,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// mismo mensaje para cita inexistente, ajena o en estado no valido:\n// no se revela si la cita existe pero pertenece a otro medico\nreturn [{ json: { codigo: 404, mensaje: 'Cita no encontrada o no admite nota' } }];"
+        "jsCode": "// mismo mensaje para cita inexistente, ajena o en estado no valido:\n// no se revela si la cita existe pero pertenece a otro medico\nreturn [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'Cita no encontrada o no admite nota' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -609,7 +609,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "46a0e2d0-7423-4857-9c2d-7a04db2d3089",
+  "versionId": "ff444255-bac9-4340-b35d-df1f2d325182",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
