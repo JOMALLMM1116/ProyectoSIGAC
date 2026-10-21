@@ -185,3 +185,25 @@ select u.id, u.rol, u.id_medico, m.nombre, u.activo
 from usuario_api u
 left join medico m on m.id = u.id_medico
 order by u.id;
+
+-- ------------------------------------------------------------
+-- CAMBIO 4 - LA RECEPCIONISTA COMO PERSONA
+--
+-- El cambio 5 del esquema creo la tabla recepcionista. Aqui se
+-- registra a la recepcionista de la clinica y se vincula al
+-- token de recepcion vigente, igual que el cambio 3 vinculo
+-- cada token de medico con su medico.
+--
+-- El update no busca el token por id sino por rol y estado:
+-- en una instalacion nueva el token de recepcion no tiene por
+-- que quedar en la fila 4.
+-- ------------------------------------------------------------
+
+insert into recepcionista (nombre)
+values ('Rosa Amalia Pop Choc');
+
+update usuario_api
+set id_recepcionista = (select id from recepcionista where nombre = 'Rosa Amalia Pop Choc')
+where rol = 'recepcion'
+  and activo
+  and id_recepcionista is null;
