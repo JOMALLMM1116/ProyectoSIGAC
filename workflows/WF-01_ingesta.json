@@ -42,7 +42,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1664,
+        1888,
         -144
       ],
       "id": "3457ba05-1f7c-42f6-bfc3-304020703461",
@@ -229,7 +229,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "with p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values ($1, $2, $3, $4, $5, $6::date, $7)\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  returning id\n)\ninsert into solicitud_cita (\n  id_paciente, tipo_consulta, motivo, fecha_preferida,\n  franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado\n)\nselect p.id, $8, $9, $10::date,\n       $11,\n       nullif($12, 'null')::time,\n       nullif($13, 'null'),\n       nullif($14, 'null')::int\nfrom p\nreturning id as id_solicitud, id_paciente, estado,\n          franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado;",
+        "query": "-- cambio 5: el do update solo ocurre si el paciente esta activo.\n-- si existe pero esta inactivo o dado de baja, la clausula where\n-- impide la actualizacion, p no devuelve fila y la solicitud no se\n-- inserta. el nodo sale vacio y ¿Paciente habilitado? lo rechaza.\nwith p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values ($1, $2, $3, $4, $5, $6::date, $7)\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  where paciente.activo\n  returning id\n)\ninsert into solicitud_cita (\n  id_paciente, tipo_consulta, motivo, fecha_preferida,\n  franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado\n)\nselect p.id, $8, $9, $10::date,\n       $11,\n       nullif($12, 'null')::time,\n       nullif($13, 'null'),\n       nullif($14, 'null')::int\nfrom p\nreturning id as id_solicitud, id_paciente, estado,\n          franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado;",
         "options": {
           "queryReplacement": "={{ $json.dpi_cifrado }}, {{ $json.dpi_huella }}, {{ $json.datos.nombre }}, {{ $json.datos.apellido }}, {{ $json.telefono_cifrado }}, {{ $json.datos.fecha_nacimiento }}, {{ $json.datos.correo }}, {{ $json.datos.tipo_consulta }}, {{ $json.datos.motivo }}, {{ $json.datos.fecha_preferida }}, {{ $json.franja_preferida }}, {{ $json.hora_solicitada }}, {{ $json.especialidad_solicitada }}, {{ $json.id_medico_solicitado }}"
         }
@@ -242,6 +242,7 @@
       ],
       "id": "16b501c7-1a98-4c8f-9abc-b7ab9fcc810d",
       "name": "Guarda solicitud",
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "SboKk4ZMcKtMLxBt",
@@ -260,8 +261,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1088,
-        -432
+        1312,
+        -624
       ],
       "id": "38befab2-1978-4fb3-956c-87e4a2d31bed",
       "name": "Registra bitacora",
@@ -279,8 +280,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1264,
-        -432
+        1552,
+        -560
       ],
       "id": "209eceeb-b8b2-4a88-b627-2eb43bb1da59",
       "name": "Registro exitoso"
@@ -319,6 +320,53 @@
           "name": "SIGAC PostgreSQL"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc5a5f58-9ec3-43fc-a9a2-1f20361665b1",
+              "leftValue": "={{ $json.id_solicitud }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        -448
+      ],
+      "id": "25feb33f-5a00-4215-84a6-6bc5bc05dfd9",
+      "name": "¿Paciente habilitado?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// cambio 5: el paciente existe pero esta inactivo o dado de baja.\n// 409 y no 403: el token y el rol son validos, lo que impide la\n// operacion es el estado del paciente.\nreturn [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El paciente no esta habilitado para solicitar citas' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -416
+      ],
+      "id": "9c194f1c-1a14-4067-9fcf-33c3fc2df074",
+      "name": "Rechazo 409"
     }
   ],
   "pinData": {},
@@ -463,7 +511,7 @@
       "main": [
         [
           {
-            "node": "Registra bitacora",
+            "node": "¿Paciente habilitado?",
             "type": "main",
             "index": 0
           }
@@ -513,6 +561,35 @@
           }
         ]
       ]
+    },
+    "¿Paciente habilitado?": {
+      "main": [
+        [
+          {
+            "node": "Registra bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 409",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 409": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -527,7 +604,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "33c3c903-0065-49f9-9343-ed01d00045e5",
+  "versionId": "c425c195-c805-41d3-a2c3-914f0609b0b9",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
