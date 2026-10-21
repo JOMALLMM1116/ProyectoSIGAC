@@ -42,7 +42,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1440,
+        1664,
         -144
       ],
       "id": "3457ba05-1f7c-42f6-bfc3-304020703461",
@@ -160,7 +160,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        96,
+        320,
         -128
       ],
       "id": "71ecfc6d-a1f1-42b3-b98a-3f21779bc544",
@@ -168,12 +168,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// valida los datos de la solicitud antes de tocar la base.\n// en guatemala el dpi son 13 digitos y el telefono 8,\n// empezando entre 2 y 8.\nconst datos = $('Hash del token').first().json.datos || {};\nconst errores = [];\n\n// convierte un texto AAAA-MM-DD en fecha solo si existe en el\n// calendario. javascript acepta \"2026-02-30\" y lo corre al 2 de\n// marzo sin avisar, pero postgresql lo rechaza en el ::date y el\n// error terminaba en WF-00. por eso se compara que el dia, el mes\n// y el anio resultantes sean los mismos que se escribieron.\nfunction fechaReal(texto) {\n  const valor = String(texto || '').trim();\n  const partes = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(valor);\n  if (!partes) return null;\n  const [, anio, mes, dia] = partes.map(Number);\n  const fecha = new Date(anio, mes - 1, dia);\n  if (fecha.getFullYear() !== anio || fecha.getMonth() !== mes - 1 || fecha.getDate() !== dia) {\n    return null;\n  }\n  return fecha;\n}\n\nconst dpi = String(datos.dpi || '').trim();\nif (!/^\\d{13}$/.test(dpi)) {\n  errores.push('El DPI debe tener exactamente 13 digitos');\n}\n\nconst telefono = String(datos.telefono || '').trim();\nif (telefono && !/^[2-8]\\d{7}$/.test(telefono)) {\n  errores.push('El telefono debe tener 8 digitos y empezar entre 2 y 8');\n}\n\nconst correo = String(datos.correo || '').trim();\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(correo)) {\n  errores.push('El correo no tiene un formato valido');\n}\n\n// la fecha preferida no puede quedar en el pasado\nconst hoy = new Date();\nhoy.setHours(0, 0, 0, 0);\nconst fechaPref = fechaReal(datos.fecha_preferida);\nif (!fechaPref) {\n  errores.push('La fecha preferida no es una fecha valida');\n} else if (fechaPref < hoy) {\n  errores.push('La fecha preferida no puede estar en el pasado');\n}\n\nconst tipos = ['urgencia', 'control', 'general'];\nif (!tipos.includes(datos.tipo_consulta)) {\n  errores.push('El tipo de consulta debe ser urgencia, control o general');\n}\n\nfor (const campo of ['nombre', 'apellido', 'fecha_nacimiento']) {\n  if (!String(datos[campo] || '').trim()) {\n    errores.push('Falta el campo ' + campo);\n  }\n}\n\n// la fecha de nacimiento antes solo se revisaba como presente:\n// \"abc\" pasaba y hacia fallar el ::date de Guarda solicitud, y una\n// fecha futura se guardaba sin objecion. si viene vacia, el error\n// ya lo agrego el ciclo anterior.\nif (String(datos.fecha_nacimiento || '').trim()) {\n  const fechaNac = fechaReal(datos.fecha_nacimiento);\n  if (!fechaNac) {\n    errores.push('La fecha de nacimiento debe ser una fecha valida con formato AAAA-MM-DD');\n  } else if (fechaNac > hoy) {\n    errores.push('La fecha de nacimiento no puede estar en el futuro');\n  } else if (fechaNac.getFullYear() < 1900) {\n    errores.push('La fecha de nacimiento no puede ser anterior a 1900');\n  }\n}\n\nif (String(datos.motivo || '').length > 255) {\n  errores.push('El motivo no puede exceder 255 caracteres');\n}\n\n// ---- preferencias del paciente ----\n// los cuatro campos son opcionales: su ausencia es lo que le\n// indica al sistema que debe decidir el. solo se valida lo que\n// el paciente si proporciono.\n\nconst franjas = ['manana', 'tarde', 'indiferente'];\nconst franja = String(datos.franja_preferida || 'indiferente').trim();\nif (!franjas.includes(franja)) {\n  errores.push('La franja debe ser manana, tarde o indiferente');\n}\n\n// la hora se valida contra las dos franjas reales de la clinica:\n// 08:00 a 12:00 y 13:30 a 17:00. el hueco del almuerzo no existe\n// como franja, de modo que una hora ahi se rechaza.\nlet hora = String(datos.hora_solicitada || '').trim() || null;\nif (hora) {\n  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(hora)) {\n    errores.push('La hora solicitada debe tener el formato HH:MM');\n  } else {\n    const minutos = Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5));\n    const enManana = minutos >= 480 && minutos < 720;\n    const enTarde  = minutos >= 810 && minutos < 1020;\n    if (!enManana && !enTarde) {\n      errores.push('La hora solicitada debe estar entre 08:00 y 12:00 o entre 13:30 y 17:00');\n    }\n    if (franja === 'manana' && !enManana) {\n      errores.push('La hora solicitada no corresponde a la franja de la manana');\n    }\n    if (franja === 'tarde' && !enTarde) {\n      errores.push('La hora solicitada no corresponde a la franja de la tarde');\n    }\n  }\n}\n\nconst especialidad = String(datos.especialidad_solicitada || '').trim() || null;\n\n// si el paciente pidio medico, se valida que sea un numero.\n// que exista y este activo lo verifica la consulta siguiente,\n// porque eso requiere tocar la base.\nlet idMedico = datos.id_medico_solicitado;\nif (idMedico !== undefined && idMedico !== null && idMedico !== '') {\n  idMedico = Number(idMedico);\n  if (!Number.isInteger(idMedico) || idMedico < 1) {\n    errores.push('El medico solicitado debe ser un identificador valido');\n    idMedico = null;\n  }\n} else {\n  idMedico = null;\n}\n\n// el dpi se enmascara para que nunca aparezca completo en logs\nconst dpiEnmascarado = dpi.length >= 4 ? '*'.repeat(9) + dpi.slice(-4) : '****';\n\n// los datos siguen al proximo nodo ya recortados: los mismos valores\n// que se acaban de validar. antes se devolvia el cuerpo original, y un\n// dpi con espacios pasaba la validacion pero generaba otra huella en\n// Cifra datos sensibles: el on conflict no lo detectaba y el mismo\n// paciente quedaba registrado dos veces.\nconst datosLimpios = {\n  ...datos,\n  dpi: dpi,\n  telefono: telefono,\n  correo: correo,\n  nombre: String(datos.nombre || '').trim(),\n  apellido: String(datos.apellido || '').trim(),\n  fecha_nacimiento: String(datos.fecha_nacimiento || '').trim(),\n  fecha_preferida: String(datos.fecha_preferida || '').trim()\n};\n\nreturn [{\n  json: {\n    valido: errores.length === 0,\n    errores: errores,\n    rol: $json.rol,\n    dpi_enmascarado: dpiEnmascarado,\n    franja_preferida: franja,\n    hora_solicitada: hora,\n    especialidad_solicitada: especialidad,\n    id_medico_solicitado: idMedico,\n    datos: datosLimpios\n  }\n}];"
+        "jsCode": "// valida los datos de la solicitud antes de tocar la base.\n// en guatemala el dpi son 13 digitos y el telefono 8,\n// empezando entre 2 y 8.\nconst datos = $('Hash del token').first().json.datos || {};\nconst errores = [];\n\n// cambio 5: el catalogo de medicos activos llega del nodo anterior.\n// el driver de postgres normalmente entrega la columna json ya como\n// arreglo, pero si llegara como texto se convierte aqui.\nlet medicosActivos = $('Lee medicos activos').first().json.medicos || [];\nif (typeof medicosActivos === 'string') {\n  medicosActivos = JSON.parse(medicosActivos);\n}\n\n// cambio 5: compara textos sin importar mayusculas ni tildes, para que\n// \"pediatría\" y \"Pediatria\" se reconozcan como la misma especialidad.\nfunction normalizar(texto) {\n  return String(texto || '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .trim()\n    .toLowerCase();\n}\n\n// convierte un texto AAAA-MM-DD en fecha solo si existe en el\n// calendario. javascript acepta \"2026-02-30\" y lo corre al 2 de\n// marzo sin avisar, pero postgresql lo rechaza en el ::date y el\n// error terminaba en WF-00. por eso se compara que el dia, el mes\n// y el anio resultantes sean los mismos que se escribieron.\nfunction fechaReal(texto) {\n  const valor = String(texto || '').trim();\n  const partes = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(valor);\n  if (!partes) return null;\n  const [, anio, mes, dia] = partes.map(Number);\n  const fecha = new Date(anio, mes - 1, dia);\n  if (fecha.getFullYear() !== anio || fecha.getMonth() !== mes - 1 || fecha.getDate() !== dia) {\n    return null;\n  }\n  return fecha;\n}\n\nconst dpi = String(datos.dpi || '').trim();\nif (!/^\\d{13}$/.test(dpi)) {\n  errores.push('El DPI debe tener exactamente 13 digitos');\n}\n\nconst telefono = String(datos.telefono || '').trim();\nif (telefono && !/^[2-8]\\d{7}$/.test(telefono)) {\n  errores.push('El telefono debe tener 8 digitos y empezar entre 2 y 8');\n}\n\nconst correo = String(datos.correo || '').trim();\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(correo)) {\n  errores.push('El correo no tiene un formato valido');\n}\n\n// la fecha preferida no puede quedar en el pasado\nconst hoy = new Date();\nhoy.setHours(0, 0, 0, 0);\nconst fechaPref = fechaReal(datos.fecha_preferida);\nif (!fechaPref) {\n  errores.push('La fecha preferida no es una fecha valida');\n} else if (fechaPref < hoy) {\n  errores.push('La fecha preferida no puede estar en el pasado');\n}\n\nconst tipos = ['urgencia', 'control', 'general'];\nif (!tipos.includes(datos.tipo_consulta)) {\n  errores.push('El tipo de consulta debe ser urgencia, control o general');\n}\n\nfor (const campo of ['nombre', 'apellido', 'fecha_nacimiento']) {\n  if (!String(datos[campo] || '').trim()) {\n    errores.push('Falta el campo ' + campo);\n  }\n}\n\n// la fecha de nacimiento antes solo se revisaba como presente:\n// \"abc\" pasaba y hacia fallar el ::date de Guarda solicitud, y una\n// fecha futura se guardaba sin objecion. si viene vacia, el error\n// ya lo agrego el ciclo anterior.\nif (String(datos.fecha_nacimiento || '').trim()) {\n  const fechaNac = fechaReal(datos.fecha_nacimiento);\n  if (!fechaNac) {\n    errores.push('La fecha de nacimiento debe ser una fecha valida con formato AAAA-MM-DD');\n  } else if (fechaNac > hoy) {\n    errores.push('La fecha de nacimiento no puede estar en el futuro');\n  } else if (fechaNac.getFullYear() < 1900) {\n    errores.push('La fecha de nacimiento no puede ser anterior a 1900');\n  }\n}\n\nif (String(datos.motivo || '').length > 255) {\n  errores.push('El motivo no puede exceder 255 caracteres');\n}\n\n// ---- preferencias del paciente ----\n// los cuatro campos son opcionales: su ausencia es lo que le\n// indica al sistema que debe decidir el. solo se valida lo que\n// el paciente si proporciono.\n\nconst franjas = ['manana', 'tarde', 'indiferente'];\nconst franja = String(datos.franja_preferida || 'indiferente').trim();\nif (!franjas.includes(franja)) {\n  errores.push('La franja debe ser manana, tarde o indiferente');\n}\n\n// la hora se valida contra las dos franjas reales de la clinica:\n// 08:00 a 12:00 y 13:30 a 17:00. el hueco del almuerzo no existe\n// como franja, de modo que una hora ahi se rechaza.\nlet hora = String(datos.hora_solicitada || '').trim() || null;\nif (hora) {\n  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(hora)) {\n    errores.push('La hora solicitada debe tener el formato HH:MM');\n  } else {\n    const minutos = Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5));\n    const enManana = minutos >= 480 && minutos < 720;\n    const enTarde  = minutos >= 810 && minutos < 1020;\n    if (!enManana && !enTarde) {\n      errores.push('La hora solicitada debe estar entre 08:00 y 12:00 o entre 13:30 y 17:00');\n    }\n    if (franja === 'manana' && !enManana) {\n      errores.push('La hora solicitada no corresponde a la franja de la manana');\n    }\n    if (franja === 'tarde' && !enTarde) {\n      errores.push('La hora solicitada no corresponde a la franja de la tarde');\n    }\n  }\n}\n\n// cambio 5: la especialidad se contrasta contra los medicos activos.\n// antes se aceptaba cualquier texto: \"Cardiologia\" pasaba y la\n// solicitud nunca encontraba medico. si coincide, se devuelve con la\n// escritura exacta de la base, que es con la que compara WF-02.\nlet especialidad = String(datos.especialidad_solicitada || '').trim() || null;\nif (especialidad) {\n  const encontrada = medicosActivos.find(m => normalizar(m.especialidad) === normalizar(especialidad));\n  if (encontrada) {\n    especialidad = encontrada.especialidad;\n  } else {\n    errores.push('No hay medicos activos con la especialidad ' + especialidad);\n    especialidad = null;\n  }\n}\n\n// cambio 5: el medico solicitado se contrasta contra los activos.\n// antes este comentario decia que la consulta siguiente verificaba\n// que existiera y estuviera activo, pero ninguna lo hacia: un id\n// inexistente violaba la llave foranea y terminaba en WF-00, y uno\n// inactivo dejaba la solicitud en lista de espera para siempre.\nlet idMedico = datos.id_medico_solicitado;\nlet medicoPedido = null;\nif (idMedico !== undefined && idMedico !== null && idMedico !== '') {\n  idMedico = Number(idMedico);\n  if (!Number.isInteger(idMedico) || idMedico < 1) {\n    errores.push('El medico solicitado debe ser un identificador valido');\n    idMedico = null;\n  } else {\n    medicoPedido = medicosActivos.find(m => m.id === idMedico) || null;\n    if (!medicoPedido) {\n      errores.push('El medico solicitado no existe o no esta activo');\n      idMedico = null;\n    }\n  }\n} else {\n  idMedico = null;\n}\n\n// cambio 5: si vienen los dos, deben coincidir. es la misma idea que\n// rechazar la franja tarde con una hora de la manana.\nif (medicoPedido && especialidad && medicoPedido.especialidad !== especialidad) {\n  errores.push('El medico solicitado no pertenece a la especialidad ' + especialidad);\n}\n\n// el dpi se enmascara para que nunca aparezca completo en logs\nconst dpiEnmascarado = dpi.length >= 4 ? '*'.repeat(9) + dpi.slice(-4) : '****';\n\n// los datos siguen al proximo nodo ya recortados: los mismos valores\n// que se acaban de validar. antes se devolvia el cuerpo original, y un\n// dpi con espacios pasaba la validacion pero generaba otra huella en\n// Cifra datos sensibles: el on conflict no lo detectaba y el mismo\n// paciente quedaba registrado dos veces.\nconst datosLimpios = {\n  ...datos,\n  dpi: dpi,\n  telefono: telefono,\n  correo: correo,\n  nombre: String(datos.nombre || '').trim(),\n  apellido: String(datos.apellido || '').trim(),\n  fecha_nacimiento: String(datos.fecha_nacimiento || '').trim(),\n  fecha_preferida: String(datos.fecha_preferida || '').trim()\n};\n\nreturn [{\n  json: {\n    valido: errores.length === 0,\n    errores: errores,\n    // cambio 5: el rol ya no llega en $json, porque entre Verifica\n    // token y este nodo ahora esta Lee medicos activos\n    rol: $('Verifica token').first().json.rol,\n    dpi_enmascarado: dpiEnmascarado,\n    franja_preferida: franja,\n    hora_solicitada: hora,\n    especialidad_solicitada: especialidad,\n    id_medico_solicitado: idMedico,\n    datos: datosLimpios\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        96,
+        320,
         -320
       ],
       "id": "4216f05f-f383-4e37-87ca-86ab58c46ffa",
@@ -207,7 +207,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        304,
+        528,
         -416
       ],
       "id": "573c93ac-c1b4-40c8-8dfa-ffeb55d3a564",
@@ -220,7 +220,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        464,
+        688,
         -240
       ],
       "id": "46c94724-8ffc-4f8a-a139-230fee703f3c",
@@ -237,7 +237,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        672,
+        896,
         -432
       ],
       "id": "16b501c7-1a98-4c8f-9abc-b7ab9fcc810d",
@@ -260,7 +260,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        864,
+        1088,
         -432
       ],
       "id": "38befab2-1978-4fb3-956c-87e4a2d31bed",
@@ -279,7 +279,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
+        1264,
         -432
       ],
       "id": "209eceeb-b8b2-4a88-b627-2eb43bb1da59",
@@ -293,11 +293,32 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        496,
+        720,
         -432
       ],
       "id": "9b76cefe-70e9-4694-adcc-e15b1dd55607",
       "name": "Cifra datos sensibles"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- catalogo de medicos activos con su especialidad, para que\n-- Valida datos pueda rechazar un medico inexistente o inactivo,\n-- una especialidad sin medicos y una combinacion contradictoria.\n-- json_agg devuelve siempre una sola fila, aunque no haya ningun\n-- medico activo: en ese caso la lista llega vacia.\nselect coalesce(\n         json_agg(json_build_object('id', id, 'especialidad', especialidad) order by id),\n         '[]'::json\n       ) as medicos\nfrom medico\nwhere activo;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        112,
+        -352
+      ],
+      "id": "279bffe0-36ad-4dec-84d7-2a75802b86ca",
+      "name": "Lee medicos activos",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -373,7 +394,7 @@
       "main": [
         [
           {
-            "node": "Valida datos",
+            "node": "Lee medicos activos",
             "type": "main",
             "index": 0
           }
@@ -481,6 +502,17 @@
           }
         ]
       ]
+    },
+    "Lee medicos activos": {
+      "main": [
+        [
+          {
+            "node": "Valida datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -495,7 +527,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "8b8169a5-ab7e-4965-b40b-6817354444d7",
+  "versionId": "33c3c903-0065-49f9-9343-ed01d00045e5",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
