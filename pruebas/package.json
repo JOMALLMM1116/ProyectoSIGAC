@@ -1,0 +1,31 @@
+{
+  "name": "pruebas-sigac",
+  "version": "1.0.0",
+  "description": "Pruebas unitarias, con simulacion y de integracion del sistema SIGAC",
+  "author": "Jose Manuel Maquin Leal",
+  "license": "ISC",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "extraer": "node extraer_nodos.js",
+    "test": "jest",
+    "test:unitarias": "jest --testPathIgnorePatterns=integracion",
+    "test:integracion": "jest integracion",
+    "test:cobertura": "jest --testPathIgnorePatterns=integracion --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": ["nodos_sigac.js"],
+    "coverageReporters": ["text", "html"],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "lines": 80
+      }
+    }
+  },
+  "devDependencies": {
+    "jest": "^30.5.2",
+    "luxon": "^3.7.2"
+  }
+}

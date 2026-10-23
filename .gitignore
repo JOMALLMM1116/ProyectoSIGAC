@@ -11,3 +11,7 @@ node_modules/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# pruebas: dependencias y reporte de cobertura
+pruebas/node_modules/
+pruebas/coverage/
