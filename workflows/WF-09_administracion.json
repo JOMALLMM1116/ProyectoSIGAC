@@ -186,8 +186,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2896,
-        480
+        4192,
+        16
       ],
       "id": "9aa732a7-cba2-41c7-aab8-3ab91349a506",
       "name": "Respuesta"
@@ -440,6 +440,466 @@
       ],
       "id": "a4b488fc-39ab-41be-b09f-c8c85dccf89a",
       "name": "Ruta"
+    },
+    {
+      "parameters": {
+        "jsCode": "// genera el token de la persona nueva: 32 bytes aleatorios en\n// hexadecimal, el mismo formato que openssl rand -hex 32.\n// a la base solo va la huella. el token en claro viaja una sola\n// vez, en la respuesta, y este flujo no guarda ejecuciones exitosas.\nconst crypto = require('crypto');\n\nconst token = crypto.randomBytes(32).toString('hex');\nconst tokenHash = crypto.createHash('sha256').update(token).digest('hex');\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    token: token,\n    token_hash: tokenHash\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -1936
+      ],
+      "id": "338efa81-f780-4a54-bfbf-87c3fdedf88f",
+      "name": "Genera token"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- alta de recepcionista en una sola sentencia: la persona, su token\n-- y el eslabon de la bitacora se guardan juntos o no se guarda nada.\n-- en WF-07 la nota y la bitacora son dos nodos; aqui no, porque un\n-- token activo sin rastro en la bitacora es justo lo que la\n-- auditoria debe impedir.\nwith r as (\n  insert into recepcionista (nombre)\n  values ($1)\n  returning id\n),\nu as (\n  insert into usuario_api (rol, token_hash, id_recepcionista)\n  select 'recepcion', $2, r.id from r\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'recepcionista', r.id, 'insert', 'admin',\n         'alta de recepcionista ' || r.id || ' con token ' || u.id,\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'recepcionista' || r.id)::bytea), 'hex')\n  from r, u, ult\n  returning hash_actual\n)\nselect r.id as id_recepcionista, b.hash_actual as hash_auditoria\nfrom r, b;",
+        "options": {
+          "queryReplacement": "={{ [ $json.nombre, $json.token_hash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2928,
+        -1920
+      ],
+      "id": "fd955d19-c518-4e50-9fb6-d0a2ac2fe8dc",
+      "name": "Agrega recepcionista",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 201 con el token en claro: es la unica vez que se muestra.\n// el admin debe entregarlo a la recepcionista por un canal seguro.\nconst r = $input.first().json;\n\nreturn [{\n  json: {\n    codigo: 201,\n    estado: 'registrado',\n    mensaje: 'Recepcionista agregada',\n    id_recepcionista: r.id_recepcionista,\n    token: $('Genera token').first().json.token,\n    aviso: 'Guarde este token ahora: no se volvera a mostrar',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3616,
+        -1904
+      ],
+      "id": "ae66cc07-2913-4bec-94d3-4c42716351f9",
+      "name": "Recepcionista agregada"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- desactiva o da de baja a una recepcionista, desactiva su token y\n-- registra el eslabon de la bitacora, todo en una sola sentencia.\n-- la consulta devuelve siempre una fila con el resultado, para que\n-- el nodo siguiente decida el codigo:\n--   no_existe  el id no corresponde a ninguna recepcionista  -> 404\n--   ya_baja    ya fue dada de baja, y la baja es definitiva  -> 409\n--   ok         se aplico el cambio                           -> 200\nwith actual as (\n  select id from recepcionista where id = $1\n),\ncambio as (\n  update recepcionista\n  set activo = false,\n      baja_en = case when $2::boolean then now() else null end\n  where id = $1 and baja_en is null\n  returning id, baja_en\n),\ntokens as (\n  update usuario_api\n  set activo = false\n  where id_recepcionista in (select id from cambio) and activo\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'recepcionista', c.id, 'update', 'admin',\n         case when c.baja_en is not null then 'baja' else 'desactivacion' end\n           || ' de recepcionista ' || c.id\n           || ', tokens desactivados: ' || (select count(*) from tokens),\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'recepcionista' || c.id)::bytea), 'hex')\n  from cambio c, ult\n  returning hash_actual\n)\nselect case\n         when not exists (select 1 from actual) then 'no_existe'\n         when exists (select 1 from cambio)     then 'ok'\n         else 'ya_baja'\n       end as resultado,\n       (select baja_en is not null from cambio) as dada_de_baja,\n       (select count(*) from tokens)            as tokens_desactivados,\n       (select hash_actual from b)              as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id, $json.baja ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2192,
+        -1760
+      ],
+      "id": "4471dee4-4f9a-4d44-ae60-da56dd2bcfd8",
+      "name": "Cambia estado recepcionista",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado de la consulta al codigo de respuesta.\n// un solo nodo con tres salidas posibles en lugar de un If y tres\n// nodos de respuesta: la decision ya la tomo la base, aqui solo se\n// redacta.\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe la recepcionista ' + id } }];\n}\n\nif (r.resultado === 'ya_baja') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'La recepcionista ' + id + ' ya fue dada de baja; la baja es definitiva' } }];\n}\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: r.dada_de_baja\n      ? 'Recepcionista ' + id + ' dada de baja'\n      : 'Recepcionista ' + id + ' desactivada',\n    tokens_desactivados: Number(r.tokens_desactivados),\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        -1760
+      ],
+      "id": "be5437a1-357d-495a-99ba-39fa8d3820e1",
+      "name": "Estado recepcionista"
+    },
+    {
+      "parameters": {
+        "jsCode": "// genera el token de la persona nueva: 32 bytes aleatorios en\n// hexadecimal, el mismo formato que openssl rand -hex 32.\n// a la base solo va la huella. el token en claro viaja una sola\n// vez, en la respuesta, y este flujo no guarda ejecuciones exitosas.\nconst crypto = require('crypto');\n\nconst token = crypto.randomBytes(32).toString('hex');\nconst tokenHash = crypto.createHash('sha256').update(token).digest('hex');\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    token: token,\n    token_hash: tokenHash\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -1552
+      ],
+      "id": "ca6e3036-1c09-41b5-a8a8-9e04143df5b1",
+      "name": "Genera token nuevo"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- reactiva a una recepcionista con un token nuevo, en una sola\n-- sentencia. el token viejo no se reactiva: queda inactivo como\n-- rastro, igual que en la rotacion de tokens.\n-- solo se reactiva a quien esta inactiva y sin baja:\n--   no_existe  el id no corresponde a ninguna recepcionista  -> 404\n--   ya_baja    fue dada de baja, y la baja es definitiva     -> 409\n--   ya_activa  ya esta activa; no hay nada que reactivar      -> 409\n--   ok         reactivada con token nuevo                     -> 200\n-- como solo se reactiva a quien estaba inactiva, sus tokens ya estan\n-- apagados (desactivar los apago), asi que el token nuevo nunca\n-- choca con el indice de un solo token activo por persona.\nwith actual as (\n  select id, activo, baja_en from recepcionista where id = $1\n),\ncambio as (\n  update recepcionista\n  set activo = true\n  where id = $1 and baja_en is null and not activo\n  returning id\n),\nnuevo as (\n  insert into usuario_api (rol, token_hash, id_recepcionista)\n  select 'recepcion', $2, c.id from cambio c\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'recepcionista', c.id, 'update', 'admin',\n         'reactivacion de recepcionista ' || c.id || ' con token nuevo ' || n.id,\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'recepcionista' || c.id)::bytea), 'hex')\n  from cambio c, nuevo n, ult\n  returning hash_actual\n)\nselect case\n         when not exists (select 1 from actual)            then 'no_existe'\n         when (select baja_en is not null from actual)     then 'ya_baja'\n         when (select activo from actual)                  then 'ya_activa'\n         else 'ok'\n       end as resultado,\n       (select hash_actual from b) as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id, $json.token_hash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2816,
+        -1648
+      ],
+      "id": "cb490d80-0495-4b39-9be5-a706efcbeea3",
+      "name": "Reactiva recepcionista",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado de la reactivacion al codigo de respuesta.\n// solo en el caso ok se devuelve el token nuevo: en los rechazos\n// no se guardo nada, asi que el token generado se descarta.\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe la recepcionista ' + id } }];\n}\n\nif (r.resultado === 'ya_baja') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'La recepcionista ' + id + ' fue dada de baja; la baja es definitiva' } }];\n}\n\nif (r.resultado === 'ya_activa') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'La recepcionista ' + id + ' ya esta activa' } }];\n}\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: 'Recepcionista ' + id + ' reactivada con token nuevo',\n    token: $('Genera token nuevo').first().json.token,\n    aviso: 'Guarde este token ahora: no se volvera a mostrar. El token anterior sigue desactivado',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        -1600
+      ],
+      "id": "447ca3e6-3c1f-4b2b-b8e5-72bd9307fa0d",
+      "name": "Recepcionista reactivada"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- desactiva o da de baja a un paciente y registra el eslabon de la\n-- bitacora en una sola sentencia. no se aplica si el paciente tiene\n-- algo en curso: una cita futura confirmada, o una solicitud que WF-02\n-- o WF-04 todavia podrian convertir en cita.\n--   no_existe       el id no corresponde a ningun paciente  -> 404\n--   ya_baja         ya fue dado de baja                     -> 409\n--   con_pendientes  tiene citas o solicitudes en curso      -> 409\n--   ok              se aplico el cambio                     -> 200\nwith actual as (\n  select id, baja_en from paciente where id = $1\n),\ncitas as (\n  select count(*) as n\n  from cita\n  where id_paciente = $1 and estado = 'confirmada' and fecha_hora > now()\n),\nsolicitudes as (\n  select count(*) as n\n  from solicitud_cita\n  where id_paciente = $1 and estado in ('pendiente', 'en_espera')\n),\ncambio as (\n  update paciente\n  set activo = false,\n      baja_en = case when $2::boolean then now() else null end\n  where id = $1\n    and baja_en is null\n    and (select n from citas) = 0\n    and (select n from solicitudes) = 0\n  returning id, baja_en\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'paciente', c.id, 'update', 'admin',\n         case when c.baja_en is not null then 'baja' else 'desactivacion' end\n           || ' de paciente ' || c.id,\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'paciente' || c.id)::bytea), 'hex')\n  from cambio c, ult\n  returning hash_actual\n)\nselect case\n         when not exists (select 1 from actual)          then 'no_existe'\n         when (select baja_en is not null from actual)   then 'ya_baja'\n         when exists (select 1 from cambio)              then 'ok'\n         else 'con_pendientes'\n       end as resultado,\n       (select n from citas)        as citas_futuras,\n       (select n from solicitudes)  as solicitudes_pendientes,\n       (select baja_en is not null from cambio) as dado_de_baja,\n       (select hash_actual from b)  as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id, $json.baja ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2192,
+        -1376
+      ],
+      "id": "49d42db0-bbf9-43e6-a401-b90aab2d0e78",
+      "name": "Cambia estado paciente",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado de la consulta al codigo de respuesta.\n// en el caso con_pendientes se informa cuantas citas y solicitudes\n// tiene, para que recepcion sepa que debe resolver antes.\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\n// count(*) llega como texto desde postgres, por eso el Number()\nconst citas = Number(r.citas_futuras);\nconst solicitudes = Number(r.solicitudes_pendientes);\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe el paciente ' + id } }];\n}\n\nif (r.resultado === 'ya_baja') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El paciente ' + id + ' ya fue dado de baja; la baja es definitiva' } }];\n}\n\nif (r.resultado === 'con_pendientes') {\n  return [{\n    json: {\n      codigo: 409,\n      estado: 'rechazado',\n      mensaje: 'El paciente ' + id + ' tiene citas o solicitudes en curso; deben cancelarse o resolverse primero',\n      citas_futuras: citas,\n      solicitudes_pendientes: solicitudes\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: r.dado_de_baja\n      ? 'Paciente ' + id + ' dado de baja'\n      : 'Paciente ' + id + ' desactivado',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        -1424
+      ],
+      "id": "420e0f25-e57f-4890-823d-96bd005fa362",
+      "name": "Estado paciente"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- reactiva a un paciente y registra el eslabon de la bitacora en\n-- una sola sentencia. no hay token que generar: el paciente no\n-- accede al sistema, lo registra recepcion.\n--   no_existe  el id no corresponde a ningun paciente  -> 404\n--   ya_baja    fue dado de baja, y es definitiva       -> 409\n--   ya_activo  ya esta activo                          -> 409\n--   ok         reactivado                              -> 200\nwith actual as (\n  select id, activo, baja_en from paciente where id = $1\n),\ncambio as (\n  update paciente\n  set activo = true\n  where id = $1 and baja_en is null and not activo\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'paciente', c.id, 'update', 'admin',\n         'reactivacion de paciente ' || c.id,\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'paciente' || c.id)::bytea), 'hex')\n  from cambio c, ult\n  returning hash_actual\n)\nselect case\n         when not exists (select 1 from actual)          then 'no_existe'\n         when (select baja_en is not null from actual)   then 'ya_baja'\n         when (select activo from actual)                then 'ya_activo'\n         else 'ok'\n       end as resultado,\n       (select hash_actual from b) as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2192,
+        -1184
+      ],
+      "id": "75305cf6-6ec0-49b6-9124-d3502f48ffae",
+      "name": "Reactiva paciente",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado de la reactivacion al codigo de respuesta\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe el paciente ' + id } }];\n}\n\nif (r.resultado === 'ya_baja') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El paciente ' + id + ' fue dado de baja; la baja es definitiva' } }];\n}\n\nif (r.resultado === 'ya_activo') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El paciente ' + id + ' ya esta activo' } }];\n}\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: 'Paciente ' + id + ' reactivado',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        -1248
+      ],
+      "id": "511fed3c-610e-4f13-99be-ee1b9e6a8c06",
+      "name": "Paciente reactivado"
+    },
+    {
+      "parameters": {
+        "jsCode": "// genera el token de la persona nueva: 32 bytes aleatorios en\n// hexadecimal, el mismo formato que openssl rand -hex 32.\n// a la base solo va la huella. el token en claro viaja una sola\n// vez, en la respuesta, y este flujo no guarda ejecuciones exitosas.\nconst crypto = require('crypto');\n\nconst token = crypto.randomBytes(32).toString('hex');\nconst tokenHash = crypto.createHash('sha256').update(token).digest('hex');\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    token: token,\n    token_hash: tokenHash\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -992
+      ],
+      "id": "07f5bc9a-eee4-4139-8d6a-ec55701737eb",
+      "name": "Genera token medico"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- alta de medico en una sola sentencia: la persona, su horario\n-- estandar, su token y el eslabon de la bitacora se guardan juntos\n-- o no se guarda nada.\n--\n-- el colegiado es unico. si ya existe, no se inserta nada y la\n-- consulta lo informa; sin esta verificacion previa, el unique de la\n-- tabla lanzaria un error que terminaria en WF-00 en lugar de un 409.\n--   colegiado_duplicado  -> 409\n--   ok                   -> 201\n--\n-- el horario estandar es el que tienen los cinco medicos iniciales:\n-- lunes a viernes, 08:00-12:00 con 8 cupos y 13:30-17:00 con 7, y el\n-- miercoles reducido a 2 y 2.\nwith dup as (\n  select 1 from medico where colegiado = $3\n),\nm as (\n  insert into medico (nombre, especialidad, colegiado)\n  select $1, $2, $3\n  where not exists (select 1 from dup)\n  returning id\n),\nhorario as (\n  insert into disponibilidad (id_medico, dia_semana, hora_inicio, hora_fin, cupos)\n  select m.id, h.dia::smallint, h.inicio::time, h.fin::time, h.cupos::smallint\n  from m\n  cross join (values\n    (1, '08:00', '12:00', 8), (1, '13:30', '17:00', 7),\n    (2, '08:00', '12:00', 8), (2, '13:30', '17:00', 7),\n    (3, '08:00', '12:00', 2), (3, '13:30', '17:00', 2),\n    (4, '08:00', '12:00', 8), (4, '13:30', '17:00', 7),\n    (5, '08:00', '12:00', 8), (5, '13:30', '17:00', 7)\n  ) as h(dia, inicio, fin, cupos)\n  returning id\n),\nu as (\n  insert into usuario_api (rol, token_hash, id_medico)\n  select 'medico', $4, m.id from m\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'medico', m.id, 'insert', 'admin',\n         'alta de medico ' || m.id || ' con token ' || u.id\n           || ' y ' || (select count(*) from horario) || ' franjas de horario',\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'medico' || m.id)::bytea), 'hex')\n  from m, u, ult\n  returning hash_actual\n)\nselect case when exists (select 1 from dup) then 'colegiado_duplicado' else 'ok' end as resultado,\n       (select id from m)             as id_medico,\n       (select count(*) from horario) as franjas,\n       (select hash_actual from b)    as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.nombre, $json.especialidad, $json.colegiado, $json.token_hash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2640,
+        -1104
+      ],
+      "id": "a44a6947-86e9-43bd-b721-6cf64018c6cf",
+      "name": "Agrega medico",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado del alta al codigo de respuesta.\n// solo en el caso ok se devuelve el token: si el colegiado estaba\n// duplicado no se guardo nada y el token generado se descarta.\nconst r = $input.first().json;\nconst datos = $('Valida datos').first().json;\n\nif (r.resultado === 'colegiado_duplicado') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'Ya existe un medico con el colegiado ' + datos.colegiado } }];\n}\n\nreturn [{\n  json: {\n    codigo: 201,\n    estado: 'registrado',\n    mensaje: 'Medico agregado con el horario estandar',\n    id_medico: r.id_medico,\n    especialidad: datos.especialidad,\n    franjas_de_horario: Number(r.franjas),\n    token: $('Genera token medico').first().json.token,\n    aviso: 'Guarde este token ahora: no se volvera a mostrar',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        -1072
+      ],
+      "id": "0b24aa1b-fb1e-42bb-aa00-316e7374d942",
+      "name": "Medico agregado"
+    },
+    {
+      "parameters": {
+        "jsCode": "// genera el token de la persona nueva: 32 bytes aleatorios en\n// hexadecimal, el mismo formato que openssl rand -hex 32.\n// a la base solo va la huella. el token en claro viaja una sola\n// vez, en la respuesta, y este flujo no guarda ejecuciones exitosas.\nconst crypto = require('crypto');\n\nconst token = crypto.randomBytes(32).toString('hex');\nconst tokenHash = crypto.createHash('sha256').update(token).digest('hex');\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    token: token,\n    token_hash: tokenHash\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        -240
+      ],
+      "id": "01d0af6f-4b36-4f6a-9e53-e7af3606f644",
+      "name": "Genera token medico nuevo"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- reactiva a un medico con un token nuevo, en una sola sentencia.\n-- el token viejo no se reactiva: queda inactivo como rastro.\n-- solo se reactiva a quien esta inactivo y sin baja:\n--   no_existe  el id no corresponde a ningun medico  -> 404\n--   ya_baja    fue dado de baja, y es definitiva     -> 409\n--   ya_activo  ya esta activo                        -> 409\n--   ok         reactivado con token nuevo            -> 200\n-- sus citas reasignadas o canceladas al desactivarlo no vuelven:\n-- reactivar solo lo deja disponible para nuevas asignaciones.\nwith actual as (\n  select id, activo, baja_en from medico where id = $1\n),\ncambio as (\n  update medico\n  set activo = true\n  where id = $1 and baja_en is null and not activo\n  returning id\n),\nnuevo as (\n  insert into usuario_api (rol, token_hash, id_medico)\n  select 'medico', $2, c.id from cambio c\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'medico', c.id, 'update', 'admin',\n         'reactivacion de medico ' || c.id || ' con token nuevo ' || n.id,\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'medico' || c.id)::bytea), 'hex')\n  from cambio c, nuevo n, ult\n  returning hash_actual\n)\nselect case\n         when not exists (select 1 from actual)          then 'no_existe'\n         when (select baja_en is not null from actual)   then 'ya_baja'\n         when (select activo from actual)                then 'ya_activo'\n         else 'ok'\n       end as resultado,\n       (select hash_actual from b) as hash_auditoria;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id, $json.token_hash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2592,
+        -192
+      ],
+      "id": "0d13f3a1-d916-4e03-9d6d-4df70c8e7d5a",
+      "name": "Reactiva medico",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// traduce el resultado de la reactivacion al codigo de respuesta.\n// solo en el caso ok se devuelve el token nuevo.\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe el medico ' + id } }];\n}\n\nif (r.resultado === 'ya_baja') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El medico ' + id + ' fue dado de baja; la baja es definitiva' } }];\n}\n\nif (r.resultado === 'ya_activo') {\n  return [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El medico ' + id + ' ya esta activo' } }];\n}\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: 'Medico ' + id + ' reactivado con token nuevo',\n    token: $('Genera token medico nuevo').first().json.token,\n    aviso: 'Guarde este token ahora: no se volvera a mostrar. Sus citas anteriores no se restauran',\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -128
+      ],
+      "id": "f80efc1e-6e1d-4ce5-9d47-948514faef6c",
+      "name": "Medico reactivado"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- reune en una sola fila todo lo que Reparte reemplazos necesita\n-- para decidir: el medico que sale, sus citas futuras confirmadas y\n-- los medicos que podrian recibirlas.\n--\n-- candidatos: activos, distintos del que sale, de su misma especialidad\n-- o de Medicina General. para cada uno van sus franjas de horario y las\n-- horas que ya tiene ocupadas, solo en las fechas que importan: las de\n-- las citas a reasignar. es la misma regla de Busca cupo en WF-02: una\n-- cita ocupa lugar mientras no este cancelada.\n--\n-- fechas y horas van en hora de Guatemala, igual que en WF-02.\n-- si el medico no existe, medico llega nulo y las listas vacias.\nwith med as (\n  select id, especialidad, activo, baja_en\n  from medico\n  where id = $1\n),\ncitas as (\n  select c.id, c.fecha_hora,\n         to_char(c.fecha_hora at time zone 'America/Guatemala', 'YYYY-MM-DD') as fecha,\n         to_char(c.fecha_hora at time zone 'America/Guatemala', 'HH24:MI')    as hora,\n         extract(isodow from c.fecha_hora at time zone 'America/Guatemala')::int as dia\n  from cita c\n  where c.id_medico = $1\n    and c.estado = 'confirmada'\n    and c.fecha_hora > now()\n),\nfechas as (\n  select distinct fecha from citas\n),\ncandidatos as (\n  select m.id, m.especialidad\n  from medico m, med\n  where m.activo\n    and m.id <> med.id\n    and (m.especialidad = med.especialidad or m.especialidad = 'Medicina General')\n)\nselect\n  (select row_to_json(med) from med) as medico,\n  coalesce(\n    (select json_agg(json_build_object('id', id, 'fecha', fecha, 'hora', hora, 'dia', dia)\n                     order by fecha_hora)\n     from citas),\n    '[]'::json\n  ) as citas,\n  coalesce(\n    (select json_agg(json_build_object(\n       'id', k.id,\n       'especialidad', k.especialidad,\n       'franjas', (\n         select coalesce(json_agg(json_build_object(\n                  'dia', d.dia_semana,\n                  'inicio', to_char(d.hora_inicio, 'HH24:MI'),\n                  'fin', to_char(d.hora_fin, 'HH24:MI'),\n                  'cupos', d.cupos)), '[]'::json)\n         from disponibilidad d\n         where d.id_medico = k.id\n       ),\n       'ocupadas', (\n         select coalesce(json_agg(json_build_object(\n                  'fecha', to_char(c2.fecha_hora at time zone 'America/Guatemala', 'YYYY-MM-DD'),\n                  'hora',  to_char(c2.fecha_hora at time zone 'America/Guatemala', 'HH24:MI'))), '[]'::json)\n         from cita c2\n         where c2.id_medico = k.id\n           and c2.estado <> 'cancelada'\n           and to_char(c2.fecha_hora at time zone 'America/Guatemala', 'YYYY-MM-DD')\n               in (select fecha from fechas)\n       )\n     ))\n     from candidatos k),\n    '[]'::json\n  ) as candidatos;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2128,
+        -736
+      ],
+      "id": "42765e47-e6cf-4e49-ae27-00c6410149b4",
+      "name": "Lee situacion del medico",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// decide, cita por cita, a que medico pasa o si se cancela. no toca\n// la base: trabaja sobre la fotografia que armo Lee situacion del\n// medico, y deja el plan listo para Aplica cambio de medico.\n//\n// regla: la cita conserva su fecha y hora; solo cambia el medico.\n// primero se busca en la misma especialidad y, si no hay, en Medicina\n// General. entre varios candidatos gana el de menor carga ese dia,\n// igual que en WF-02. cada reasignacion se anota en memoria, para que\n// la siguiente cita ya la cuente como ocupada.\nconst lectura = $input.first().json;\nconst datos = $('Valida datos').first().json;\n\n// las columnas json normalmente llegan ya como objeto; si llegaran\n// como texto se convierten aqui\nfunction leer(valor, porDefecto) {\n  if (valor === null || valor === undefined) return porDefecto;\n  return typeof valor === 'string' ? JSON.parse(valor) : valor;\n}\n\nconst medico = leer(lectura.medico, null);\nconst citas = leer(lectura.citas, []);\nconst candidatos = leer(lectura.candidatos, []);\n\nif (!medico) {\n  return [{ json: { resultado: 'no_existe' } }];\n}\nif (medico.baja_en) {\n  return [{ json: { resultado: 'ya_baja' } }];\n}\n\n// \"HH:MI\" a minutos desde medianoche, para comparar horas como numeros\nfunction minutos(hora) {\n  return Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5));\n}\n\n// ocupacion en memoria: por candidato y por fecha, la lista de horas\nconst ocupacion = {};\nfor (const k of candidatos) {\n  ocupacion[k.id] = {};\n  for (const o of leer(k.ocupadas, [])) {\n    if (!ocupacion[k.id][o.fecha]) ocupacion[k.id][o.fecha] = [];\n    ocupacion[k.id][o.fecha].push(o.hora);\n  }\n}\n\nconst GENERAL = 'Medicina General';\nconst mismaEspecialidad = candidatos.filter(k => k.especialidad === medico.especialidad);\nconst generales = candidatos.filter(k => k.especialidad === GENERAL);\n\n// si el que sale ya es de Medicina General, los dos grupos son el\n// mismo y basta con revisar uno\nconst grupos = medico.especialidad === GENERAL ? [generales] : [mismaEspecialidad, generales];\n\n// devuelve el candidato con menor carga que puede atender la cita,\n// o null si ninguno del grupo puede\nfunction buscar(grupo, cita) {\n  const m = minutos(cita.hora);\n  let mejor = null;\n\n  for (const k of grupo) {\n    // la franja de ese dia de la semana que contiene la hora de la cita\n    const franja = leer(k.franjas, []).find(f =>\n      f.dia === cita.dia && minutos(f.inicio) <= m && m < minutos(f.fin));\n    if (!franja) continue;\n\n    const horas = ocupacion[k.id][cita.fecha] || [];\n\n    // ya tiene una cita a esa misma hora\n    if (horas.includes(cita.hora)) continue;\n\n    // la franja ya llego a su cupo\n    const enFranja = horas.filter(h =>\n      minutos(h) >= minutos(franja.inicio) && minutos(h) < minutos(franja.fin)).length;\n    if (enFranja >= franja.cupos) continue;\n\n    // menor carga del dia; en empate, el id menor\n    const carga = horas.length;\n    if (!mejor || carga < mejor.carga || (carga === mejor.carga && k.id < mejor.id)) {\n      mejor = { id: k.id, carga: carga };\n    }\n  }\n  return mejor;\n}\n\nconst reasignar = [];\nconst cancelar = [];\n\nfor (const cita of citas) {\n  let elegido = null;\n  for (const grupo of grupos) {\n    elegido = buscar(grupo, cita);\n    if (elegido) break;\n  }\n\n  if (elegido) {\n    reasignar.push({ id_cita: cita.id, id_medico: elegido.id });\n    if (!ocupacion[elegido.id][cita.fecha]) ocupacion[elegido.id][cita.fecha] = [];\n    ocupacion[elegido.id][cita.fecha].push(cita.hora);\n  } else {\n    cancelar.push(cita.id);\n  }\n}\n\nreturn [{\n  json: {\n    resultado: 'ok',\n    id_medico: medico.id,\n    baja: datos.baja,\n    reasignar: reasignar,\n    cancelar: cancelar,\n    // las dos listas viajan como texto json para la consulta siguiente\n    reasignar_json: JSON.stringify(reasignar),\n    cancelar_json: JSON.stringify(cancelar)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        -528
+      ],
+      "id": "c3eb4b15-b4bb-4805-b63d-9ace96d64e47",
+      "name": "Reparte reemplazos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "374b6855-af7e-4283-9f61-8bd80ea4bc13",
+              "leftValue": "={{ $json.resultado }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2464,
+        -496
+      ],
+      "id": "da580728-da62-4b55-8e15-886c55253624",
+      "name": "¿Se puede aplicar?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// los dos casos en que no se aplica nada: el medico no existe, o ya\n// fue dado de baja. ninguna cita se toca y no se escribe en la bitacora.\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nif (r.resultado === 'no_existe') {\n  return [{ json: { codigo: 404, estado: 'rechazado', mensaje: 'No existe el medico ' + id } }];\n}\n\nreturn [{ json: { codigo: 409, estado: 'rechazado', mensaje: 'El medico ' + id + ' ya fue dado de baja; la baja es definitiva' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        -432
+      ],
+      "id": "22f48b0f-4461-454c-babc-f966ca85fd01",
+      "name": "Rechazo estado medico"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- aplica el plan de Reparte reemplazos en una sola sentencia: se guarda\n-- todo o nada. si entre la lectura y este momento WF-02 asigno una cita\n-- en el mismo horario, el indice uqcita_medico_horario rechaza la\n-- sentencia completa, el error va a WF-00 y no queda nada a medias.\n--\n-- cada update vuelve a exigir que la cita siga confirmada y siga siendo\n-- del medico que sale, por si algo cambio desde la lectura.\n--\n-- las reasignadas quedan con notificada = true: el correo de cambio lo\n-- envia este flujo, y asi WF-03 no manda ademas el de cita confirmada.\n--\n-- un solo eslabon en la bitacora resume la operacion completa, porque\n-- una misma sentencia no puede encadenar varios eslabones entre si.\nwith plan_r as (\n  select (x->>'id_cita')::int as id_cita, (x->>'id_medico')::int as id_medico\n  from json_array_elements($3::json) x\n),\nplan_c as (\n  select (x::text)::int as id_cita\n  from json_array_elements($4::json) x\n),\nreasignadas as (\n  update cita c\n  set id_medico = p.id_medico, notificada = true\n  from plan_r p\n  where c.id = p.id_cita and c.id_medico = $1 and c.estado = 'confirmada'\n  returning c.id, c.id_medico, c.id_paciente, c.fecha_hora\n),\ncanceladas as (\n  update cita c\n  set estado = 'cancelada'\n  where c.id in (select id_cita from plan_c) and c.id_medico = $1 and c.estado = 'confirmada'\n  returning c.id, c.id_paciente, c.fecha_hora\n),\npreferencias as (\n  update solicitud_cita\n  set id_medico_solicitado = null\n  where id_medico_solicitado = $1 and estado in ('pendiente', 'en_espera')\n  returning id\n),\ncambio as (\n  update medico\n  set activo = false,\n      baja_en = case when $2::boolean then now() else null end\n  where id = $1 and baja_en is null\n  returning id, baja_en\n),\ntokens as (\n  update usuario_api\n  set activo = false\n  where id_medico in (select id from cambio) and activo\n  returning id\n),\nult as (\n  select hash_actual from bitacora_auditoria order by id desc limit 1\n),\nb as (\n  insert into bitacora_auditoria\n    (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\n  select 'medico', c.id, 'update', 'admin',\n         case when c.baja_en is not null then 'baja' else 'desactivacion' end\n           || ' de medico ' || c.id\n           || '; reasignadas: ' || (select count(*) from reasignadas)\n           || coalesce(' (citas ' || (select string_agg(id::text, ' ' order by id) from reasignadas) || ')', '')\n           || '; canceladas: ' || (select count(*) from canceladas)\n           || coalesce(' (citas ' || (select string_agg(id::text, ' ' order by id) from canceladas) || ')', '')\n           || '; preferencias liberadas: ' || (select count(*) from preferencias)\n           || '; tokens desactivados: ' || (select count(*) from tokens),\n         ult.hash_actual,\n         encode(sha256((ult.hash_actual || 'medico' || c.id)::bytea), 'hex')\n  from cambio c, ult\n  returning hash_actual\n)\nselect\n  (select baja_en is not null from cambio) as dado_de_baja,\n  (select count(*) from reasignadas)  as reasignadas,\n  (select count(*) from canceladas)   as canceladas,\n  (select count(*) from preferencias) as preferencias_liberadas,\n  (select count(*) from tokens)       as tokens_desactivados,\n  (select hash_actual from b)         as hash_auditoria,\n  coalesce((\n    select json_agg(json_build_object(\n      'id_cita', r.id,\n      'correo', p.correo,\n      'paciente', p.nombre || ' ' || p.apellido,\n      'fecha', to_char(r.fecha_hora at time zone 'America/Guatemala', 'DD/MM/YYYY'),\n      'hora',  to_char(r.fecha_hora at time zone 'America/Guatemala', 'HH24:MI'),\n      'medico_nuevo', m.nombre,\n      'especialidad', m.especialidad))\n    from reasignadas r\n    join paciente p on p.id = r.id_paciente\n    join medico m on m.id = r.id_medico\n  ), '[]'::json) as detalle_reasignadas,\n  coalesce((\n    select json_agg(json_build_object(\n      'id_cita', c.id,\n      'correo', p.correo,\n      'paciente', p.nombre || ' ' || p.apellido,\n      'fecha', to_char(c.fecha_hora at time zone 'America/Guatemala', 'DD/MM/YYYY'),\n      'hora',  to_char(c.fecha_hora at time zone 'America/Guatemala', 'HH24:MI')))\n    from canceladas c\n    join paciente p on p.id = c.id_paciente\n  ), '[]'::json) as detalle_canceladas;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id_medico, $json.baja, $json.reasignar_json, $json.cancelar_json ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2784,
+        -800
+      ],
+      "id": "d0a7fc81-8b74-4657-9db7-1e993531dae6",
+      "name": "Aplica cambio de medico",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// respuesta 200 con el resumen de lo que paso con las citas del medico.\n// los conteos llegan como texto desde postgres, por eso el Number().\nconst r = $input.first().json;\nconst id = $('Valida datos').first().json.id;\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'actualizado',\n    mensaje: r.dado_de_baja\n      ? 'Medico ' + id + ' dado de baja'\n      : 'Medico ' + id + ' desactivado',\n    citas_reasignadas: Number(r.reasignadas),\n    citas_canceladas: Number(r.canceladas),\n    preferencias_liberadas: Number(r.preferencias_liberadas),\n    tokens_desactivados: Number(r.tokens_desactivados),\n    hash_auditoria: r.hash_auditoria\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -544
+      ],
+      "id": "5650de5f-d82f-494f-a235-4c5f152c1265",
+      "name": "Medico desactivado"
+    },
+    {
+      "parameters": {
+        "jsCode": "// arma un item por cada paciente que debe recibir aviso: uno por cita\n// reasignada y uno por cita cancelada. si el medico no tenia citas,\n// devuelve una lista vacia y Envia correo no se ejecuta; la respuesta\n// al admin sale por la otra rama y no depende de esta.\nconst r = $input.first().json;\n\nfunction leer(valor) {\n  if (!valor) return [];\n  return typeof valor === 'string' ? JSON.parse(valor) : valor;\n}\n\nconst correos = [];\n\nfor (const c of leer(r.detalle_reasignadas)) {\n  correos.push({\n    json: {\n      para: c.correo,\n      asunto: 'SIGAC - Cambio de medico en su cita del ' + c.fecha,\n      texto:\n        'Estimado(a) ' + c.paciente + ':\\n\\n' +\n        'Le informamos que su cita del ' + c.fecha + ' a las ' + c.hora +\n        ' sigue en pie, pero sera atendida por ' + c.medico_nuevo +\n        ' (' + c.especialidad + '), porque el medico asignado anteriormente ya no esta disponible.\\n\\n' +\n        'No necesita hacer nada: la fecha y la hora se mantienen.\\n\\n' +\n        'Clinica - SIGAC'\n    }\n  });\n}\n\nfor (const c of leer(r.detalle_canceladas)) {\n  correos.push({\n    json: {\n      para: c.correo,\n      asunto: 'SIGAC - Su cita del ' + c.fecha + ' no esta disponible',\n      texto:\n        'Estimado(a) ' + c.paciente + ':\\n\\n' +\n        'Lamentamos informarle que la cita que tenia programada para el ' + c.fecha +\n        ' a las ' + c.hora + ' ya no esta disponible, porque el medico asignado no podra atenderla ' +\n        'y no encontramos otro medico libre en ese horario.\\n\\n' +\n        'Por favor, llame a la clinica para recibir mas informacion y reprogramar su cita.\\n\\n' +\n        'Clinica - SIGAC'\n    }\n  });\n}\n\nreturn correos;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        -800
+      ],
+      "id": "2d175d2a-4bb8-4ddf-be37-e49eb0362ded",
+      "name": "Prepara correos"
+    },
+    {
+      "parameters": {
+        "fromEmail": "no-responder@sigac.local",
+        "toEmail": "={{ $json.para }}",
+        "subject": "={{ $json.asunto }}\n",
+        "emailFormat": "text",
+        "text": "={{ $json.texto }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3216,
+        -800
+      ],
+      "id": "e4fb20de-c0dc-44d7-a833-6006cbe4fb84",
+      "name": "Envia correo",
+      "webhookId": "05491043-6995-4ccd-9671-f1c988f75e6c",
+      "credentials": {
+        "smtp": {
+          "id": "QGUdpIidEOYJkElS",
+          "name": "SIGAC MailHog"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -574,6 +1034,353 @@
           }
         ]
       ]
+    },
+    "Ruta": {
+      "main": [
+        [
+          {
+            "node": "Genera token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cambia estado recepcionista",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Genera token nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cambia estado paciente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reactiva paciente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Genera token medico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lee situacion del medico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Genera token medico nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera token": {
+      "main": [
+        [
+          {
+            "node": "Agrega recepcionista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrega recepcionista": {
+      "main": [
+        [
+          {
+            "node": "Recepcionista agregada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recepcionista agregada": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cambia estado recepcionista": {
+      "main": [
+        [
+          {
+            "node": "Estado recepcionista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estado recepcionista": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera token nuevo": {
+      "main": [
+        [
+          {
+            "node": "Reactiva recepcionista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reactiva recepcionista": {
+      "main": [
+        [
+          {
+            "node": "Recepcionista reactivada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recepcionista reactivada": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cambia estado paciente": {
+      "main": [
+        [
+          {
+            "node": "Estado paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estado paciente": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reactiva paciente": {
+      "main": [
+        [
+          {
+            "node": "Paciente reactivado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paciente reactivado": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera token medico": {
+      "main": [
+        [
+          {
+            "node": "Agrega medico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrega medico": {
+      "main": [
+        [
+          {
+            "node": "Medico agregado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medico agregado": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera token medico nuevo": {
+      "main": [
+        [
+          {
+            "node": "Reactiva medico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reactiva medico": {
+      "main": [
+        [
+          {
+            "node": "Medico reactivado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medico reactivado": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee situacion del medico": {
+      "main": [
+        [
+          {
+            "node": "Reparte reemplazos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reparte reemplazos": {
+      "main": [
+        [
+          {
+            "node": "¿Se puede aplicar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se puede aplicar?": {
+      "main": [
+        [
+          {
+            "node": "Aplica cambio de medico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo estado medico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo estado medico": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplica cambio de medico": {
+      "main": [
+        [
+          {
+            "node": "Medico desactivado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepara correos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medico desactivado": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara correos": {
+      "main": [
+        [
+          {
+            "node": "Envia correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -588,7 +1395,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "37fcc6e1-b8f5-4812-be32-47b88fdee003",
+  "versionId": "972694b6-be93-44d5-8ead-0703a5ade87a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
