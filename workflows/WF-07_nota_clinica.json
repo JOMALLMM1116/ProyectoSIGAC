@@ -255,7 +255,7 @@
         "operation": "executeQuery",
         "query": "insert into nota_clinica (id_expediente, id_paciente, id_cita, id_medico,\n                          diagnostico_cifrado, indicaciones_cifrado)\nvalues ($1, $2, $3, $4, $5, nullif($6, 'null'))\nreturning id, id_cita, id_medico, creado_en;",
         "options": {
-          "queryReplacement": "={{ $json.id_expediente }}, {{ $json.id_paciente }}, {{ $json.id_cita }}, {{ $json.id_medico }}, {{ $json.diagnostico_cifrado }}, {{ $json.indicaciones_cifrado }}"
+          "queryReplacement": "={{ [ $json.id_expediente, $json.id_paciente, $json.id_cita, $json.id_medico, $json.diagnostico_cifrado, $json.indicaciones_cifrado ?? 'null' ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -609,7 +609,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "ff444255-bac9-4340-b35d-df1f2d325182",
+  "versionId": "5ba61996-3290-4121-b4df-7fc101eafd40",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

@@ -17,7 +17,7 @@
         "operation": "executeQuery",
         "query": "insert into log_errores (workflow, nodo, mensaje, payload_enmascarado, severidad)\nvalues ($1, $2, $3, $4, 'alta')\nreturning id, workflow, nodo, severidad;",
         "options": {
-          "queryReplacement": "={{ $json.workflow.name }}, {{ $json.execution?.lastNodeExecuted || \"desconocido\" }}, {{ $json.execution?.error?.message || \"error no especificado\" }}, {{ \"ejecucion \" + $json.execution?.id }}"
+          "queryReplacement": "={{ [ $json.workflow.name, $json.execution?.lastNodeExecuted || \"desconocido\", $json.execution?.error?.message || \"error no especificado\", \"ejecucion \" + $json.execution?.id ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -91,7 +91,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "d6048043-f6ea-433d-ae4e-e46ced746a95",
+  "versionId": "a6c4c9de-65f1-457c-93cb-3f4050094c7d",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
