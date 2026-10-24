@@ -15,7 +15,8 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "collectCoverageFrom": ["nodos_sigac.js"],
+    "roots": ["<rootDir>/tests"],
+    "collectCoverageFrom": ["nodos/*.js"],
     "coverageReporters": ["text", "html"],
     "coverageThreshold": {
       "global": {

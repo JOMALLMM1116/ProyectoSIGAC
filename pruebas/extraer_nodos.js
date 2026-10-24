@@ -1,19 +1,22 @@
 // extraer_nodos.js
 //
-// genera nodos_sigac.js a partir de los flujos exportados en
-// ../workflows. cada nodo Code se convierte en una funcion que
-// contiene su codigo exactamente como esta en n8n: las pruebas
-// verifican lo que se publico, no una copia que pueda quedar
-// desfasada.
+// genera la carpeta nodos/ a partir de los flujos exportados en
+// ../workflows: un archivo por cada nodo Code, con su codigo
+// exactamente como esta en n8n. las pruebas verifican lo que se
+// publico, no una copia que pueda quedar desfasada.
 //
-// las variables que n8n inyecta en un nodo Code llegan como
-// parametros: $input, $ (para $('Nodo')), $json, $env y DateTime.
-// this.helpers se pasa con .call(contexto, ...) desde la prueba.
+// cada archivo exporta una funcion. las variables que n8n inyecta
+// en un nodo Code llegan como parametros: $input, $ (para
+// $('Nodo')), $json, $env y DateTime. this.helpers se pasa con
+// .call(contexto, ...) desde la prueba.
 //
 // si el codigo usa await, la funcion se declara async: en n8n el
 // nodo Code ya corre dentro de una funcion asincrona.
 //
-// uso: node extraer_nodos.js
+// antes de escribir se borran los archivos .js que hubiera en
+// nodos/, para que un nodo eliminado en n8n no deje un archivo viejo.
+//
+// uso: npm run extraer
 
 'use strict';
 
@@ -21,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CARPETA = path.join(__dirname, '..', 'workflows');
-const SALIDA = path.join(__dirname, 'nodos_sigac.js');
+const DESTINO = path.join(__dirname, 'nodos');
 
 // "WF-01_ingesta.json" -> "wf01"
 function prefijo(archivo) {
@@ -52,11 +55,16 @@ function variablesUsadas(codigo) {
   return [...usadas].sort();
 }
 
+// prepara la carpeta destino sin archivos viejos
+fs.mkdirSync(DESTINO, { recursive: true });
+for (const viejo of fs.readdirSync(DESTINO)) {
+  if (viejo.endsWith('.js')) fs.unlinkSync(path.join(DESTINO, viejo));
+}
+
 const archivos = fs.readdirSync(CARPETA)
   .filter(f => /^WF-\d+_.*\.json$/i.test(f))
   .sort();
 
-const partes = [];
 const resumen = [];
 const nombresUsados = new Set();
 
@@ -81,34 +89,29 @@ for (const archivo of archivos) {
     const asincrona = /\bawait\b/.test(codigo);
     const variables = variablesUsadas(codigo);
 
-    partes.push(
-      '// ' + '-'.repeat(60) + '\n' +
+    const contenido =
       '// ' + flujo.name + ' · ' + nodo.name + '\n' +
       '// modo: ' + modo + (asincrona ? ' · asincrona' : '') + '\n' +
       '// usa: ' + (variables.join(', ') || 'nada de n8n') + '\n' +
-      'nodos.' + nombre + ' = ' + (asincrona ? 'async ' : '') +
-      'function ($input, $, $json, $env, DateTime) {\n' +
+      '//\n' +
+      '// ARCHIVO GENERADO por extraer_nodos.js a partir de workflows/' + archivo + '\n' +
+      '// no editar a mano: los cambios se hacen en n8n, se exporta el\n' +
+      '// flujo y se vuelve a ejecutar npm run extraer.\n\n' +
+      "'use strict';\n\n" +
+      (asincrona ? 'async ' : '') +
+      'function ' + nombre + '($input, $, $json, $env, DateTime) {\n' +
       codigo + '\n' +
-      '};\n' +
-      'nodos.' + nombre + '.meta = ' + JSON.stringify({
+      '}\n\n' +
+      nombre + '.meta = ' + JSON.stringify({
         flujo: flujo.name, nodo: nodo.name, modo: modo,
         asincrona: asincrona, variables: variables
-      }) + ';\n'
-    );
+      }) + ';\n\n' +
+      'module.exports = ' + nombre + ';\n';
 
-    resumen.push({ funcion: nombre, modo: modo, async: asincrona ? 'si' : '' });
+    fs.writeFileSync(path.join(DESTINO, nombre + '.js'), contenido);
+    resumen.push({ archivo: 'nodos/' + nombre + '.js', modo: modo, async: asincrona ? 'si' : '' });
   }
 }
 
-const encabezado =
-  '// ARCHIVO GENERADO por extraer_nodos.js a partir de ../workflows\n' +
-  '// no editar a mano: los cambios se hacen en n8n, se exporta el\n' +
-  '// flujo y se vuelve a ejecutar node extraer_nodos.js.\n' +
-  '// generado: ' + new Date().toISOString() + '\n\n' +
-  "'use strict';\n\n" +
-  'const nodos = {};\n\n';
-
-fs.writeFileSync(SALIDA, encabezado + partes.join('\n') + '\nmodule.exports = nodos;\n');
-
 console.table(resumen);
-console.log('\n' + resumen.length + ' nodos Code escritos en ' + path.basename(SALIDA));
+console.log('\n' + resumen.length + ' archivos escritos en nodos/');
