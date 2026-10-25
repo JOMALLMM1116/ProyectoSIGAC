@@ -29,17 +29,35 @@ if (¿rol es recepcion?) then (no)
 else (sí)
 endif
 
+:Lee el catálogo de médicos activos;
+note right
+  Médicos activos con su especialidad,
+  para validar las preferencias contra
+  lo que de verdad existe en la clínica
+end note
+
 :Valida los datos de la solicitud;
 note right
   DPI de 13 dígitos, teléfono de 8,
-  formato de correo, fecha no anterior
-  a hoy, tipo de consulta en lista
-  cerrada. Los errores se acumulan
-  para devolverlos todos juntos.
+  formato de correo, fechas que existan
+  en el calendario (la preferida no
+  anterior a hoy; la de nacimiento no
+  futura ni anterior a 1900), tipo de
+  consulta en lista cerrada y motivo
+  de hasta 255 caracteres.
+
+  Preferencias opcionales: franja, hora
+  dentro de esa franja, especialidad con
+  médicos activos y médico como entero,
+  activo y de la especialidad pedida.
+
+  Los errores se acumulan para devolverlos
+  todos juntos, y los datos siguen ya
+  recortados.
 end note
 
 if (¿datos válidos?) then (no)
-  :Prepara rechazo 400\ncon el detalle del campo;
+  :Prepara rechazo 400\ncon el detalle de cada campo;
   detach
 else (sí)
 endif
@@ -54,12 +72,27 @@ note right
   puede ser descartado.
 end note
 
-:Inserta paciente y solicitud;
+:Inserta paciente y solicitud\nen una sola sentencia;
 note right
-  on conflict (dpi_huella) do update:
-  un paciente que ya existe no se
-  duplica, se actualiza.
+  on conflict (dpi_huella) do update
+  where paciente.activo: un paciente
+  que ya existe no se duplica, y uno
+  inactivo o dado de baja no recibe
+  la solicitud.
+
+  Parámetros como lista: un nombre o
+  un motivo con comas llega íntegro.
 end note
+
+if (¿paciente habilitado?) then (no)
+  :Prepara rechazo 409;
+  note right
+    La sentencia no insertó nada:
+    no queda ninguna fila a medias
+  end note
+  detach
+else (sí)
+endif
 
 :Registra en bitacora_auditoria;
 note right
@@ -67,7 +100,7 @@ note right
   || tabla_afectada || id_registro)
 end note
 
-:Prepara respuesta 201\ncon id_solicitud y hash;
+:Prepara respuesta 201\ncon id_solicitud, hash\ny DPI enmascarado;
 
 stop
 

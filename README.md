@@ -53,8 +53,9 @@ de flujo y datos agregados, de modo que pueden entregarse por un servicio extern
 sin exponer información clínica. Ningún flujo envía información clínica por correo.
 
 Diagramas en `docs/uml/`: arquitectura de contenedores, flujo principal (WF-01),
-casos de uso, clases y secuencia. El PDF `DiagramasUML.pdf` los contiene ya
-renderizados.
+casos de uso, clases y secuencia. `NuevosDiagramasUML.pdf` los contiene ya
+renderizados en su versión actual; `DiagramasUML.pdf` conserva la versión
+anterior como evidencia de la evolución del diseño.
 
 ---
 

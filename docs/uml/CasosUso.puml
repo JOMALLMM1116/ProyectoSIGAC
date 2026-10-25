@@ -1,76 +1,114 @@
-@startuml Secuencia_SIGAC
-actor Recepcionista
+@startuml CasosUso_SIGAC
+left to right direction
+skinparam packageStyle rectangle
 
-participant "API n8n" as API
-participant "UsuarioApi" as U
-participant "SolicitudCita" as S
-participant "Paciente" as P
-participant "Disponibilidad" as D
-participant "Cita" as C
-participant "ListaEspera" as L
-participant "Expediente" as E
-participant "BitacoraAuditoria" as B
-participant "LogErrores" as LOG
-actor "Servidor de correo" as Correo
+actor "Recepcionista" as Recepcion
+actor "Médico" as Medico
+actor "Administrador" as Admin
+actor "Temporizador" as Reloj
+actor "Paciente" as Paciente
 
-== Ingesta síncrona — WF-01, responde al momento ==
+rectangle "SIGAC — Sistema de Gestión de Atención Clínica" {
 
-Recepcionista -> API : enviar solicitud de cita (datos + token)
+  ' --- Comunes ---
+  usecase "Autenticar con token" as UC_Auth
+  usecase "Registrar en la bitácora" as UC_Bitacora
+  usecase "Generar token" as UC_Token
 
-API -> U : validarToken(hash)
-U --> API : true
+  ' --- Recepción ---
+  usecase "Registrar solicitud de cita" as UC_Solicitud
+  usecase "Indicar preferencias\n(franja, hora, especialidad, médico)" as UC_Pref
+  usecase "Cancelar cita" as UC_Cancelar
+  usecase "Reasignar cupo liberado" as UC_Reasignar
 
-API -> U : tieneRol("recepcion")
-U --> API : true
+  ' --- Médico ---
+  usecase "Cerrar cita" as UC_Cerrar
+  usecase "Registrar nota clínica" as UC_Nota
+  usecase "Consultar historial clínico" as UC_Historial
 
-alt datos válidos
-  API -> S : validarDatos()
-  S --> API : true
+  ' --- Administración ---
+  usecase "Agregar médico o recepcionista" as UC_Agregar
+  usecase "Desactivar persona" as UC_Desactivar
+  usecase "Dar de baja a una persona" as UC_Baja
+  usecase "Reactivar persona" as UC_Reactivar
+  usecase "Reasignar citas del médico" as UC_ReasignarMed
 
-  API -> P : registrar()
-  P --> API : paciente registrado
+  ' --- Procesos automáticos ---
+  usecase "Asignar cita" as UC_Asignar
+  usecase "Ingresar a lista de espera" as UC_Espera
+  usecase "Notificar al paciente" as UC_Notificar
+  usecase "Abrir expediente" as UC_Expediente
+  usecase "Generar reporte semanal" as UC_Reporte
+  usecase "Registrar error y alertar" as UC_Error
+}
 
-  API -> P : enmascararDPI()
-  P --> API : *********0101
+' --- Actores y casos de uso ---
+Recepcion --> UC_Solicitud
+Recepcion --> UC_Cancelar
 
-  API -> B : encadenar(hashAnterior)
-  API --> Recepcionista : 201 solicitud registrada
+Medico --> UC_Cerrar
+Medico --> UC_Nota
+Medico --> UC_Historial
 
-else datos inválidos
-  API -> S : validarDatos()
-  S --> API : false
+Admin --> UC_Agregar
+Admin --> UC_Desactivar
+Admin --> UC_Baja
+Admin --> UC_Reactivar
 
-  API -> LOG : registrar(mensaje)
-  API --> Recepcionista : 400 datos inválidos
-end
+Reloj --> UC_Asignar
+Reloj --> UC_Notificar
+Reloj --> UC_Reporte
 
-== Asignación diferida — WF-02, temporizador cada 5 min ==
+UC_Notificar --> Paciente
+UC_Reporte --> Admin
+UC_Error --> Admin
 
-API -> S : clasificar()
-API -> S : asignarPrioridad()
+' --- Include: obligatorios ---
+UC_Solicitud ..> UC_Auth : <<include>>
+UC_Cancelar ..> UC_Auth : <<include>>
+UC_Cerrar ..> UC_Auth : <<include>>
+UC_Nota ..> UC_Auth : <<include>>
+UC_Historial ..> UC_Auth : <<include>>
+UC_Agregar ..> UC_Auth : <<include>>
+UC_Desactivar ..> UC_Auth : <<include>>
+UC_Baja ..> UC_Auth : <<include>>
+UC_Reactivar ..> UC_Auth : <<include>>
 
-API -> D : hayCupo(fecha)
+UC_Solicitud ..> UC_Bitacora : <<include>>
+UC_Nota ..> UC_Bitacora : <<include>>
+UC_Historial ..> UC_Bitacora : <<include>>
 
-alt hay cupo disponible
-  D --> API : true
+UC_Agregar ..> UC_Token : <<include>>
+UC_Notificar ..> UC_Expediente : <<include>>
 
-  API -> C : crear()
-  API -> S : cambiarEstado("asignada")
+' --- Extend: opcionales ---
+UC_Pref ..> UC_Solicitud : <<extend>>
+UC_Reasignar ..> UC_Cancelar : <<extend>>
+UC_Espera ..> UC_Asignar : <<extend>>
+UC_ReasignarMed ..> UC_Desactivar : <<extend>>
+UC_ReasignarMed ..> UC_Baja : <<extend>>
+UC_Token ..> UC_Reactivar : <<extend>>
 
-else sin cupo disponible
-  D --> API : false
+note right of UC_Historial
+  Cada consulta queda en la
+  bitácora, aunque el historial
+  esté vacío.
+end note
 
-  API -> L : encolar()
-  API -> S : cambiarEstado("en_espera")
-end
+note right of UC_ReasignarMed
+  Solo cuando la persona es un médico
+  con citas futuras: pasan a otro de su
+  especialidad o de Medicina General;
+  si nadie puede atenderlas, se cancelan.
+end note
 
-API -> B : encadenar(hashAnterior)
+note right of UC_Reasignar
+  Solo si hay alguien en lista de
+  espera para esa fecha.
+end note
 
-== Notificación diferida — WF-03, temporizador cada 5 min ==
-
-API -> Correo : notificación de cita confirmada
-API -> C : marcarNotificada()
-API -> E : abrir()
-
-API -> B : encadenar(hashAnterior)
+note right of UC_Error
+  Lo dispara WF-00 ante un fallo
+  no previsto de cualquier flujo.
+end note
 @enduml

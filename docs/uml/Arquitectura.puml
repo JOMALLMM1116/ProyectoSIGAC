@@ -3,7 +3,8 @@ skinparam componentStyle rectangle
 skinparam nodeSep 40
 skinparam rankSep 55
 
-actor "Recepcionista" as Cliente
+actor "Recepcionista" as Recepcion
+actor "Médico" as Medico
 actor "Administrador" as Admin
 
 node "Equipo anfitrión — Windows con WSL 2" {
@@ -16,16 +17,23 @@ node "Equipo anfitrión — Windows con WSL 2" {
 
   node "Docker — red interna del proyecto" as Red {
 
-    component "sigac-n8n\nn8n 2.33.6" as N8N
-    component "sigac-postgres\nPostgreSQL 16" as PG
+    component "sigac-n8n\nn8n 2.33.6\nWF-00 a WF-09" as N8N
+    component "sigac-postgres\nPostgreSQL 16\n12 tablas" as PG
     component "sigac-mailhog\nMailHog" as MH
-    component "gotenberg\n(previsto para WF-05)" as GB
+    component "sigac-gotenberg\nGotenberg 8" as GB
 
     database "Volumen nombrado\nsigac_postgres_data" as VOL
+    database "Volumen nombrado\nsigac_n8n_data" as VOLN8N
   }
+
+  folder "./reportes\n(bind mount)" as REP
 }
 
-Cliente --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar
+cloud "Gmail\nsmtp.gmail.com" as GMAIL
+
+Recepcion --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar
+Medico --> P5678 : HTTP POST\n/webhook/cerrar\n/webhook/nota\n/webhook/historial
+Admin --> P5678 : HTTP POST\n/webhook/admin
 Admin --> P8025 : consulta la bandeja
 Admin --> P5433 : pgAdmin
 
@@ -34,15 +42,20 @@ P8025 --> MH
 P5433 --> PG
 
 N8N --> PG : SQL\nhost postgres : 5432
-N8N --> MH : SMTP\nhost mailhog : 1025
-N8N ..> GB : HTTP\nconversión a PDF
+N8N --> MH : SMTP\nhost mailhog : 1025\ncorreos al paciente
+N8N --> GB : HTTP\nconversión a PDF (WF-06)
+N8N --> REP : guarda el PDF\nsemana_AAAA-SS.pdf
+N8N --> GMAIL : SMTP con TLS : 465\nalertas y reporte semanal
+GMAIL --> Admin : correo real
 
 PG --> VOL : persiste
+N8N --> VOLN8N : flujos y credenciales\ncifradas
 
 note bottom of Loopback
   Los tres puertos se publican únicamente en 127.0.0.1.
   Ningún servicio queda accesible desde otros equipos
-  de la red local.
+  de la red local. Gotenberg no publica ningún puerto:
+  solo lo alcanza n8n por la red interna.
 end note
 
 note right of PG
@@ -57,5 +70,11 @@ note right of VOL
   DrvFs en WSL no reproduce los permisos que
   PostgreSQL exige y el contenedor entra en
   bucle de reinicio.
+end note
+
+note right of GMAIL
+  Única salida a Internet. Solo transporta
+  alertas de error y conteos agregados:
+  ningún dato de paciente sale del equipo.
 end note
 @enduml

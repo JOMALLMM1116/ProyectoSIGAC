@@ -3,6 +3,7 @@ actor Recepcionista
 
 participant "API n8n" as API
 participant "UsuarioApi" as U
+participant "Medico" as M
 participant "SolicitudCita" as S
 participant "Paciente" as P
 participant "Disponibilidad" as D
@@ -11,58 +12,119 @@ participant "ListaEspera" as L
 participant "Expediente" as E
 participant "BitacoraAuditoria" as B
 participant "LogErrores" as LOG
-actor "Servidor de correo" as Correo
+actor "MailHog" as Correo
+actor "Administrador\n(Gmail)" as Admin
+
+== Ingesta síncrona — WF-01, responde al momento ==
 
 Recepcionista -> API : enviar solicitud de cita (datos + token)
 
 API -> U : validarToken(hash)
-U --> API : true
 
-API -> U : tieneRol("recepcion")
-U --> API : true
+alt token ausente o inválido
+  U --> API : false
+  API --> Recepcionista : 401 no autorizado
 
-alt datos válidos
-  API -> S : validarDatos()
-  S --> API : true
+else token válido
+  U --> API : true
+  API -> U : tieneRol("recepcion")
 
-  API -> P : registrar()
-  P --> API : paciente registrado
+  alt rol no autorizado
+    U --> API : false
+    API --> Recepcionista : 403 rol sin permiso
 
-  API -> P : enmascararDPI()
-  P --> API : *********0101
+  else rol autorizado
+    U --> API : true
 
-  API -> B : encadenar(hashAnterior)
-  API --> Recepcionista : 201 solicitud registrada
+    API -> M : leerActivos()
+    M --> API : catálogo de médicos activos
 
-else datos inválidos
-  API -> S : validarDatos()
-  S --> API : false
+    API -> S : validarDatos(catálogo)
 
-  API -> LOG : registrar(mensaje)
-  API --> Recepcionista : 400 datos inválidos
+    alt datos inválidos
+      S --> API : errores acumulados
+      API --> Recepcionista : 400 con el detalle de cada campo
+
+    else datos válidos
+      S --> API : datos recortados
+
+      API -> P : cifrar(dpi, telefono)
+      P --> API : valores cifrados y huella del DPI
+
+      API -> P : registrarOReutilizar(huella)
+
+      alt paciente inactivo o dado de baja
+        P --> API : sin fila
+        API --> Recepcionista : 409 paciente no habilitado
+
+      else paciente habilitado
+        P --> API : paciente
+        API -> S : registrar(preferencias)
+
+        API -> B : encadenar(hashAnterior)
+
+        API -> P : enmascararDPI()
+        P --> API : *********0101
+
+        API --> Recepcionista : 201 solicitud registrada
+      end
+    end
+  end
 end
 
+note over API, S
+  Paciente y solicitud se guardan en una sola sentencia:
+  si el paciente no está habilitado, no se inserta nada.
+end note
+
+== Asignación diferida — WF-02, temporizador cada 5 min ==
+
+API -> S : leerPendientes()
 API -> S : clasificar()
 API -> S : asignarPrioridad()
 
-API -> D : hayCupo(fecha)
+API -> D : buscarCupo(fecha, franja)
+D --> API : cupos por médico y franja
+API -> C : horasOcupadas(fecha)
+C --> API : horas ya tomadas
+
+API -> API : repartirCupos(preferencias)
+
+note right of API
+  Médico o especialidad pedidos,
+  si no Medicina General; el de menor
+  carga y el primer hueco libre, sin
+  citas a menos de 30 minutos.
+end note
 
 alt hay cupo disponible
-  D --> API : true
-
   API -> C : crear()
   API -> S : cambiarEstado("asignada")
 
-  API -> C : marcarNotificada()
-  API -> E : abrir()
-  API -> Correo : notificación de cita confirmada
-
 else sin cupo disponible
-  D --> API : false
-
   API -> L : encolar()
   API -> S : cambiarEstado("en_espera")
 end
 
 API -> B : encadenar(hashAnterior)
+
+== Notificación diferida — WF-03, temporizador cada 5 min ==
+
+par cita confirmada
+  API -> C : leerSinNotificar()
+  API -> Correo : notificación de cita confirmada
+  API -> C : marcarNotificada()
+  API -> E : abrir()
+  API -> B : encadenar(hashAnterior)
+
+else lista de espera
+  API -> L : leerSinNotificar()
+  API -> Correo : aviso de lista de espera
+  API -> L : marcarNotificada()
+end
+
+== Fallo no previsto — WF-00, en cualquier flujo ==
+
+API -> LOG : registrar(mensaje enmascarado)
+API -> Admin : alerta con el identificador del error
 @enduml

@@ -8,6 +8,8 @@ class UsuarioApi {
   - activo: Boolean
   + validarToken(hash: String): Boolean
   + tieneRol(rol: String): Boolean
+  + generarToken(): String
+  + desactivar(): void
 }
 
 class Paciente {
@@ -20,8 +22,13 @@ class Paciente {
   - fechaNacimiento: Date
   - correo: String
   - activo: Boolean
-  + registrar(): void
+  - bajaEn: DateTime
+  + cifrar(dpi: String, telefono: String): void
+  + registrarOReutilizar(huella: String): Paciente
   + enmascararDPI(): String
+  + desactivar(): void
+  + darBaja(): void
+  + reactivar(): void
 }
 
 class Medico {
@@ -30,7 +37,23 @@ class Medico {
   - especialidad: String
   - colegiado: String
   - activo: Boolean
+  - bajaEn: DateTime
+  + leerActivos(): List<Medico>
   + estaActivo(): Boolean
+  + desactivar(): void
+  + darBaja(): void
+  + reactivar(): void
+}
+
+class Recepcionista {
+  - id: Integer
+  - nombre: String
+  - activo: Boolean
+  - bajaEn: DateTime
+  - creadoEn: DateTime
+  + desactivar(): void
+  + darBaja(): void
+  + reactivar(): void
 }
 
 class Disponibilidad {
@@ -39,7 +62,7 @@ class Disponibilidad {
   - horaInicio: Time
   - horaFin: Time
   - cupos: Integer
-  + hayCupo(fecha: Date): Boolean
+  + buscarCupo(fecha: Date, franja: String): Integer
 }
 
 class SolicitudCita {
@@ -49,7 +72,11 @@ class SolicitudCita {
   - prioridad: Integer
   - estado: String
   - fechaPreferida: Date
-  + validarDatos(): Boolean
+  - franjaPreferida: String
+  - horaSolicitada: Time
+  - especialidadSolicitada: String
+  + validarDatos(catalogo: List<Medico>): Boolean
+  + registrar(): void
   + clasificar(): void
   + asignarPrioridad(): void
   + cambiarEstado(estado: String): void
@@ -61,7 +88,10 @@ class Cita {
   - estado: String
   - notificada: Boolean
   + crear(): void
+  + horasOcupadas(fecha: Date): List<Time>
   + cancelar(): void
+  + cerrar(resultado: String): void
+  + reasignar(medico: Medico): void
   + marcarNotificada(): void
 }
 
@@ -73,18 +103,31 @@ class Expediente {
   + abrir(): void
 }
 
+class NotaClinica {
+  - id: Integer
+  - diagnosticoCifrado: String
+  - indicacionesCifrado: String
+  - creadoEn: DateTime
+  + registrar(): void
+  + descifrar(): String
+}
+
 class ListaEspera {
   - id: Integer
   - prioridad: Integer
   - posicion: Integer
   - atendida: Boolean
+  - notificada: Boolean
+  - creadoEn: DateTime
   + encolar(): void
   + siguienteEnEspera(): SolicitudCita
+  + marcarNotificada(): void
 }
 
 class BitacoraAuditoria {
   - id: Integer
   - tablaAfectada: String
+  - idRegistro: Integer
   - accion: String
   - rol: String
   - datosEnmascarados: String
@@ -101,6 +144,7 @@ class LogErrores {
   - mensaje: String
   - payloadEnmascarado: String
   - severidad: String
+  - creadoEn: DateTime
   + registrar(mensaje: String): void
 }
 
@@ -112,15 +156,25 @@ Paciente "1" -- "0..*" Cita : recibe >
 Cita "1" -- "0..1" Expediente : genera >
 Paciente "1" -- "0..*" Expediente : posee >
 SolicitudCita "1" -- "0..1" ListaEspera : ingresa a >
+Medico "0..1" -- "0..*" SolicitudCita : es solicitado en >
+
+Expediente "1" o-- "0..*" NotaClinica : contiene >
+Medico "1" -- "0..*" NotaClinica : firma >
+Cita "1" -- "0..*" NotaClinica : se escribe sobre <
+
+UsuarioApi "0..*" -- "0..1" Medico : identifica >
+UsuarioApi "0..*" -- "0..1" Recepcionista : identifica >
 
 UsuarioApi "1" ..> "0..*" SolicitudCita : autoriza >
 SolicitudCita "1" ..> "0..*" BitacoraAuditoria : registra >
 Cita "1" ..> "0..*" BitacoraAuditoria : registra >
-SolicitudCita "1" ..> "0..*" LogErrores : reporta >
+NotaClinica "1" ..> "0..*" BitacoraAuditoria : registra escritura y lectura >
 
 note bottom of Cita
-  Restricción: un Médico no puede tener dos Citas
-  en la misma fecha y hora (sin traslape).
+  Un Médico no puede tener dos Citas vigentes en la
+  misma fecha y hora: lo impide un índice único que
+  excluye las canceladas. Al asignar, además, ninguna
+  cita del médico puede empezar a menos de 30 minutos.
 end note
 
 note bottom of Paciente
@@ -133,5 +187,27 @@ note bottom of BitacoraAuditoria
   Cada registro guarda el hash del anterior.
   Si alguien altera una fila, la cadena se rompe
   y verificarCadena() lo detecta.
+end note
+
+note right of NotaClinica
+  Inmutable: solo se inserta, nunca se
+  modifica ni se borra. El médico que la
+  firma sale de su token, no de la petición.
+end note
+
+note right of UsuarioApi
+  Una persona puede tener varios tokens en su
+  historial, pero solo uno activo a la vez.
+end note
+
+note top of Recepcionista
+  Paciente, Medico y Recepcionista tienen tres
+  estados: activo, inactivo (reversible) y baja
+  (bajaEn con fecha, definitiva). Nunca se borran.
+end note
+
+note bottom of LogErrores
+  Lo escribe WF-00 ante un fallo no previsto
+  de cualquier flujo, no una clase en particular.
 end note
 @enduml
