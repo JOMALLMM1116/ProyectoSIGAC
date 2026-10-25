@@ -20,8 +20,15 @@ const medico = $('Verifica token').first().json;
 
 const errores = [];
 
-const idCita = Number(cuerpo.id_cita);
-if (!Number.isInteger(idCita) || idCita <= 0) {
+// defecto 12.24: antes se convertia con Number(), y Number(true) es 1,
+// de modo que "id_cita": true se aceptaba como la cita 1. ahora solo se
+// acepta un numero o un texto que contenga un entero positivo, igual
+// que id_medico_solicitado en WF-01 (defecto 12.23).
+const valorCita = (typeof cuerpo.id_cita === 'number' || typeof cuerpo.id_cita === 'string')
+  ? String(cuerpo.id_cita).trim()
+  : '';
+const idCita = /^[1-9]\d*$/.test(valorCita) ? Number(valorCita) : null;
+if (idCita === null) {
   errores.push('id_cita debe ser un entero positivo');
 }
 

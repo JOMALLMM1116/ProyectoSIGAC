@@ -78,12 +78,20 @@ if (accion === 'agregar') {
 // el id debe ser un entero positivo. aqui se rechaza con 400 en lugar
 // de usar el centinela 0 de WF-04 y WF-05, porque este flujo ya tiene
 // su propio rechazo de datos.
+//
+// defecto 12.24: antes se convertia con Number(), y Number(true) es 1,
+// de modo que "id": true desactivaba o daba de baja a la persona 1. ahora
+// solo se acepta un numero o un texto que contenga un entero positivo,
+// igual que id_medico_solicitado en WF-01 (defecto 12.23).
 let id = null;
 if (['desactivar', 'dar_baja', 'reactivar'].includes(accion)) {
-  id = Number(datos.id);
-  if (!Number.isInteger(id) || id < 1) {
+  const valorId = (typeof datos.id === 'number' || typeof datos.id === 'string')
+    ? String(datos.id).trim()
+    : '';
+  if (/^[1-9]\d*$/.test(valorId)) {
+    id = Number(valorId);
+  } else {
     errores.push('El id debe ser un entero positivo');
-    id = null;
   }
 }
 

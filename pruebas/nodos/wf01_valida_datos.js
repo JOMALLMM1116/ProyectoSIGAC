@@ -159,14 +159,22 @@ if (especialidad) {
 // que existiera y estuviera activo, pero ninguna lo hacia: un id
 // inexistente violaba la llave foranea y terminaba en WF-00, y uno
 // inactivo dejaba la solicitud en lista de espera para siempre.
+//
+// defecto 12.23: antes se convertia con Number(), y Number(true) es 1,
+// de modo que "id_medico_solicitado": true asignaba la cita al medico 1
+// sin que nadie lo pidiera. ahora solo se acepta un numero o un texto
+// que contenga un entero positivo, igual que id_cita en WF-04 y WF-05.
 let idMedico = datos.id_medico_solicitado;
 let medicoPedido = null;
 if (idMedico !== undefined && idMedico !== null && idMedico !== '') {
-  idMedico = Number(idMedico);
-  if (!Number.isInteger(idMedico) || idMedico < 1) {
+  const valorMedico = (typeof idMedico === 'number' || typeof idMedico === 'string')
+    ? String(idMedico).trim()
+    : '';
+  if (!/^[1-9]\d*$/.test(valorMedico)) {
     errores.push('El medico solicitado debe ser un identificador valido');
     idMedico = null;
   } else {
+    idMedico = Number(valorMedico);
     medicoPedido = medicosActivos.find(m => m.id === idMedico) || null;
     if (!medicoPedido) {
       errores.push('El medico solicitado no existe o no esta activo');

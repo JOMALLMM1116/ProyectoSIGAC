@@ -76,8 +76,12 @@ function buscar(grupo, cita) {
 
     const horas = ocupacion[k.id][cita.fecha] || [];
 
-    // ya tiene una cita a esa misma hora
-    if (horas.includes(cita.hora)) continue;
+    // ya tiene una cita que se cruza con esta. defecto 12.25: cada cita
+    // dura 30 minutos, pero antes solo se comparaba la hora exacta, y una
+    // cita a las 08:15 se le pasaba a un medico que ya tenia otra a las
+    // 08:00. ahora se descarta si alguna empieza a menos de 30 minutos,
+    // igual que en Reparte cupos de WF-02.
+    if (horas.some(h => Math.abs(minutos(h) - m) < 30)) continue;
 
     // la franja ya llego a su cupo
     const enFranja = horas.filter(h =>

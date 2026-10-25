@@ -51,6 +51,16 @@ for (const f of $('Busca cupo').all()) {
   });
 }
 
+// defecto 12.25: cada cita dura 30 minutos. un minuto esta libre solo
+// si no hay otra cita que empiece menos de 30 minutos antes o despues.
+// antes se comparaba solo la hora exacta: una cita a las 08:15 se
+// cruzaba con otra a las 08:00 del mismo medico, y el indice
+// uqcita_medico_horario de la base tampoco lo impide, porque tambien
+// compara solo la hora exacta.
+function estaLibre(franja, minuto) {
+  return !franja.tomadas.some(t => Math.abs(t - minuto) < 30);
+}
+
 // convierte minutos desde medianoche al formato HH:MM:SS
 function aHora(min) {
   return String(Math.floor(min / 60)).padStart(2, '0') + ':' +
@@ -92,7 +102,7 @@ for (const s of solicitudes) {
   }
 
   // 2. si pidio hora exacta, solo sirve la franja que la contiene
-  //    y solo si ese minuto no esta ya tomado, ni en la base ni en
+  //    y solo si no se cruza con otra cita, ni de la base ni de
   //    este mismo lote
   let horaExacta = null;
   if (d.hora_solicitada) {
@@ -100,7 +110,7 @@ for (const s of solicitudes) {
     candidatas = candidatas.filter(f =>
       horaExacta >= f.inicio &&
       horaExacta < f.fin &&
-      !f.tomadas.includes(horaExacta)
+      estaLibre(f, horaExacta)
     );
   }
 
@@ -118,11 +128,11 @@ for (const s of solicitudes) {
   if (horaExacta !== null) {
     minuto = horaExacta;
   } else {
-    // primer hueco de 30 minutos que no este tomado. antes se usaba
+    // primer hueco de 30 minutos que no se cruce con otra cita. antes se usaba
     // inicio + 30 * ocupados, que choca con las horas pedidas por
     // otros pacientes y con las citas que ya existian en la base.
     for (let m = franja.inicio; m < franja.fin; m += 30) {
-      if (!franja.tomadas.includes(m)) {
+      if (estaLibre(franja, m)) {
         minuto = m;
         break;
       }
