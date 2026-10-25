@@ -14,8 +14,7 @@ Facultad de Ingeniería en Sistemas de Información y Ciencias de la Computació
 | **Correo** | jmaquinl@miumg.edu.gt |
 | **Repositorio** | github.com/JOMALLMM1116/ProyectoSIGAC |
 | **Entregable** | Proyecto Final — Entrega final |
-| **Versión del documento** | v5 |
-| **Fecha** | Cobán, Alta Verapaz — 23 de octubre de 2026 |
+| **Fecha** | Cobán, Alta Verapaz — 25 de octubre de 2026 |
 
 ---
 
@@ -32,8 +31,6 @@ Esta sección responde a la ficha de inscripción solicitada en la sección 7 de
 | **Persistencia** | PostgreSQL 16 en contenedor, con volumen nombrado |
 | **Enfoque de ciberseguridad** | Diez capas: credenciales en variables de entorno, autenticación por token, autorización por rol, identidad de la persona en el token, cifrado AES-256-GCM en reposo, bitácora de auditoría encadenada por hash SHA-256, auditoría de las lecturas de información clínica, validación de entradas, consultas parametrizadas y exclusión de datos sensibles del historial de ejecuciones |
 | **Justificación del tema** | Una clínica maneja datos personales sensibles (DPI, teléfono, diagnóstico) sujetos a confidencialidad, lo que permite implementar controles de seguridad reales y no simbólicos. Además, el proceso de solicitud, asignación y notificación de citas es un flujo de negocio claro y acotado, adecuado al tamaño de un proyecto semestral. |
-
-Al tratarse de modalidad individual, no aplican las secciones 8, 9, 10, 12 ni 16 de la guía, correspondientes a la documentación de trabajo en equipo.
 
 ---
 
@@ -61,8 +58,6 @@ SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atenció
 | Sin trazabilidad del expediente | Cada nota clínica queda firmada por el médico que la escribe, y cada lectura del historial queda registrada en la bitácora encadenada |
 | Datos sensibles sin protección | DPI, teléfono, diagnóstico e indicaciones cifrados con AES-256-GCM; acceso por token, rol e identidad de la persona |
 
-La tercera fila merece una aclaración. Las versiones v1 a v4 declaraban resuelta la trazabilidad del expediente, pero el sistema abría el expediente vacío y no ofrecía ninguna operación para escribirlo ni consultarlo: no había nada que rastrear. La promesa del planteamiento se cumple a partir de esta versión, con WF-07 y WF-08.
-
 ---
 
 ## 3. Objetivos
@@ -84,7 +79,7 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 | 7 | Completar el ciclo de vida de la cita mediante un flujo de cierre. | Flujo WF-05 exportado y caso 10 superado | Cumplido |
 | 8 | Registrar y consultar información clínica cifrada, con la firma del médico que la escribe y la auditoría de cada lectura. | Flujos WF-07 y WF-08 y sus casos de prueba | Cumplido |
 | 9 | Administrar el ciclo de vida de pacientes, médicos y recepcionistas sin borrar su historial, reasignando las citas del médico que deja de atender. | Flujo WF-09 y sus casos de prueba | Cumplido |
-| 10 | Verificar la lógica de los nodos Code mediante pruebas unitarias y de integración, y medir su cobertura. | Informe de cobertura en `pruebas/` | En curso |
+| 10 | Verificar la lógica de los nodos Code mediante pruebas unitarias, con simulación de sus dependencias, y medir su cobertura. | Documento de pruebas e informe de cobertura | Cumplido — 857 pruebas |
 
 ---
 
@@ -109,17 +104,15 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 
 La delimitación negativa forma parte del diseño y se declara para evitar ambigüedad en la evaluación:
 
-- No se desarrolla aplicación móvil. La interfaz web para recepción y médicos queda como trabajo futuro (sección 16); la interacción con el sistema es vía API.
+- No se desarrolla aplicación móvil. La aplicación web para recepción y médicos sí forma parte del proyecto, y se construye como siguiente fase (sección 16.4); por ahora la interacción con el sistema es vía API.
 - No se implementa módulo de facturación ni cobros.
 - No se implementa firma electrónica avanzada ni certificados digitales. La firma de la nota clínica es una firma de identidad: se deduce del token de cada médico, no de un certificado.
 - No se contempla despliegue en producción ni alta disponibilidad.
 - El paciente no accede al sistema. Sus solicitudes las registra recepción, y no existe un token de paciente.
 - La derivación entre especialidades no la gestiona el sistema: si un médico deriva a un paciente, recepción registra una solicitud nueva.
-- No se implementan, por ahora, consultas de citas, pacientes ni lista de espera para recepción. Se planifican como WF-12 (sección 16).
+- No se implementan, por ahora, consultas de citas, pacientes ni lista de espera para recepción. Se planifican como WF-13 (sección 16.3).
 
-### 4.3 Corrección de una exclusión de versiones anteriores: proveedores externos de correo
-
-Las versiones v1 a v3 de este documento declaraban fuera de alcance «servicios en la nube y proveedores externos de correo». Esa afirmación dejó de ser exacta y se corrigió en la v4.
+### 4.3 Correo hacia un proveedor externo
 
 El sistema emplea dos vías de correo distintas según el destinatario, y la diferencia es deliberada:
 
@@ -132,15 +125,7 @@ Los correos dirigidos al paciente contienen datos personales y permanecen confin
 
 Ni WF-07 ni WF-08 envían correo: la información clínica nunca sale por esa vía.
 
-Los datos operativos y clínicos siguen residiendo exclusivamente en el contenedor de PostgreSQL. La incorporación de Gmail afecta la vía de notificación al administrador, no el almacenamiento ni el procesamiento.
-
-### 4.4 Corrección de una exclusión de la v4: operaciones de consulta
-
-La v4 declaraba que el sistema «no dispone de endpoints de lectura» y que la información se consultaba directamente sobre la base de datos. Esa afirmación dejó de ser cierta con WF-08.
-
-WF-08 es un endpoint de lectura, y además el más delicado del sistema: devuelve el historial clínico descifrado. Por eso se construyó con controles que ningún otro flujo necesitaba. Solo lo usa el rol `medico`. Recibe una cita y no un paciente, de modo que un médico solo ve el historial de pacientes con quienes tiene una cita. Y cada lectura queda registrada en la bitácora, incluso cuando el historial está vacío.
-
-Lo que sigue fuera de alcance es la consulta operativa de recepción: citas del día, pacientes y lista de espera. Esa información se consulta por ahora sobre la base, y se planifica como WF-12.
+Los datos operativos y clínicos residen exclusivamente en el contenedor de PostgreSQL. Gmail interviene solo en la vía de notificación al administrador, no en el almacenamiento ni en el procesamiento.
 
 ---
 
@@ -156,8 +141,6 @@ La solución se compone de cuatro contenedores Docker sobre la red interna que C
 | **sigac-gotenberg** | `gotenberg/gotenberg:8` | Conversión de HTML a PDF para el reporte semanal | Ninguno |
 
 Gotenberg no publica puerto alguno porque solo lo consume n8n desde la red interna. Exponerlo al anfitrión no aportaría nada y ampliaría la superficie de exposición sin motivo.
-
-> **Captura 1 — Contenedores en ejecución.** Salida de `docker compose ps` mostrando los cuatro servicios activos y sus puertos publicados en `127.0.0.1`.
 
 ### 5.1 Flujo de datos entre componentes
 
@@ -203,7 +186,7 @@ La única excepción es la carpeta `reportes/`, montada como bind mount para que
 
 **Acceso a variables de entorno desde los nodos Code.** La variable `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` habilita la lectura de `$env` dentro de los nodos Code, necesaria para que la clave de cifrado se lea del entorno y no quede escrita en el flujo.
 
-**Restricción del acceso a archivos.** La variable `N8N_RESTRICT_FILE_ACCESS_TO=/reportes` limita la lectura y escritura de los nodos de archivo a esa única ruta. Se discute en la sección 8.6, porque sustituyó a una configuración más permisiva que constituía un riesgo.
+**Restricción del acceso a archivos.** La variable `N8N_RESTRICT_FILE_ACCESS_TO=/reportes` limita la lectura y escritura de los nodos de archivo a esa única ruta. La sección 8.6 explica por qué se combina con la protección de los archivos internos de n8n.
 
 **Separación del correo saliente.** MailHog captura las notificaciones al paciente sin entregarlas a destinatarios reales, lo que permite evidenciarlas durante las pruebas sin exponer datos personales. Las alertas al administrador y el reporte semanal salen por una credencial SMTP autenticada de Gmail, porque su destinatario es una persona real y su contenido no incluye información de pacientes.
 
@@ -211,7 +194,7 @@ La única excepción es la carpeta `reportes/`, montada como bind mount para que
 
 ## 6. Modelo de datos
 
-El esquema consta de doce tablas agrupadas en tres dominios: control de acceso, datos operativos y trazabilidad. Diez forman parte del diseño de agosto; `nota_clinica` y `recepcionista` se incorporaron en octubre, junto con columnas nuevas en cinco de las tablas originales.
+El esquema consta de doce tablas agrupadas en tres dominios: control de acceso, datos operativos y trazabilidad.
 
 | Tabla | Dominio | Campos principales |
 |---|:-:|---|
@@ -227,8 +210,6 @@ El esquema consta de doce tablas agrupadas en tres dominios: control de acceso, 
 | **lista_espera** | Operativo | `id`, `id_solicitud`, `prioridad`, `posicion`, `atendida`, `notificada`, `creado_en` |
 | **bitacora_auditoria** | Trazabilidad | `id`, `tabla_afectada`, `id_registro`, `accion`, `rol`, `datos_enmascarados`, `hash_anterior`, `hash_actual` |
 | **log_errores** | Trazabilidad | `id`, `workflow`, `nodo`, `mensaje`, `payload_enmascarado`, `severidad`, `creado_en` |
-
-> **Captura 2 — Esquema desplegado.** Listado de las doce tablas en pgAdmin o mediante consulta a `information_schema`.
 
 ### 6.1 Estados definidos
 
@@ -274,7 +255,7 @@ Dos reglas no están declaradas en la base, y se dejan así de forma consciente:
 
 ### 6.3 El campo `dpi_huella`
 
-Este campo no formaba parte del diseño original y se incorporó al implementar el cifrado. El algoritmo AES-GCM emplea un vector de inicialización aleatorio, de modo que dos cifrados del mismo DPI producen textos distintos. Esa propiedad es deseable desde el punto de vista criptográfico, pero impide buscar un paciente por su DPI o detectar duplicados sin descifrar toda la tabla.
+Este campo existe por una consecuencia del cifrado. El algoritmo AES-GCM emplea un vector de inicialización aleatorio, de modo que dos cifrados del mismo DPI producen textos distintos. Esa propiedad es deseable desde el punto de vista criptográfico, pero impide buscar un paciente por su DPI o detectar duplicados sin descifrar toda la tabla.
 
 La solución es almacenar junto al valor cifrado una huella SHA-256 determinista con restricción de unicidad. La huella permite localizar y deduplicar sin revelar el dato, y el valor cifrado permite recuperarlo cuando es legítimamente necesario.
 
@@ -282,25 +263,25 @@ La solución es almacenar junto al valor cifrado una huella SHA-256 determinista
 
 Seis campos se cifran con AES-256-GCM: `dpi_cifrado` y `telefono_cifrado` en `paciente`, `diagnostico_cifrado` e `indicaciones_cifrado` en `nota_clinica`, y los dos campos homónimos de `expediente`. La clave reside en variable de entorno y no se escribe en el flujo ni en el repositorio.
 
-Los dos campos de `expediente` quedan nulos de forma permanente. El diseño original guardaba el contenido clínico en el propio expediente, una sola vez por cita; el modelo evolucionó hacia varias notas por paciente, cada una firmada por su médico. Los campos se conservan declarados en lugar de eliminarse, porque explican la historia del diseño: `expediente` es el registro de que el expediente se abrió, y `nota_clinica` es su contenido.
+Los dos campos de `expediente` permanecen nulos: `expediente` es el registro de que el expediente se abrió, y el contenido clínico vive en `nota_clinica`, que admite varias notas por paciente, cada una firmada por su médico.
 
-**Coexistencia de dos formatos.** Los registros de `paciente` creados antes de implementar el cifrado conservan un valor SHA-256 de 64 caracteres, mientras que los posteriores almacenan el formato `iv:textoCifrado:etiqueta`. Los primeros no son descifrables, por tratarse de un hash y no de un cifrado. Se documenta la situación en lugar de ocultarla, y no se depuran los registros antiguos por ser datos de prueba sin valor operativo.
+**Coexistencia de dos formatos.** Algunos registros de prueba de `paciente` conservan un valor SHA-256 de 64 caracteres, mientras que el resto almacena el formato `iv:textoCifrado:etiqueta`. Los primeros no son descifrables, por tratarse de un hash y no de un cifrado. No se depuran por ser datos de prueba sin valor operativo.
 
-### 6.5 Evolución del esquema
+### 6.5 Organización de los archivos SQL
 
-Los archivos SQL conservan el diseño de agosto en la parte superior y agregan al final un bloque de **cambios y alteraciones posteriores**. Lo nuevo no se integra arriba, para que el historial del diseño quede legible: lo de arriba es lo que se pensó en agosto, y lo de abajo es lo que el análisis por roles hizo evidente en octubre.
+Cada archivo SQL contiene el esquema o los datos base en la parte superior y, al final, un bloque de **cambios y alteraciones posteriores**, numerados y cada uno con su motivo.
 
-| Cambio | Archivo | Contenido | Motivo |
-|:-:|---|---|---|
-| 1 | `01_schema.sql` | Preferencias del paciente en `solicitud_cita`: franja, hora, especialidad y médico | El sistema asignaba siempre el primer cupo de la mañana, aunque el paciente solo pudiera asistir por la tarde |
-| 2 | `01_schema.sql` | Tabla `nota_clinica` | El expediente se abría vacío y nunca se escribía |
-| 3 | `01_schema.sql` | `lista_espera.notificada` | El paciente sin cupo no sabía que estaba en espera |
-| 4 | `01_schema.sql` | `usuario_api.id_medico` y un solo token activo por médico | Con un token compartido, el sistema sabía que escribió un médico, pero no cuál |
-| 5 | `01_schema.sql` | `baja_en` en paciente y médico, tabla `recepcionista` y `usuario_api.id_recepcionista` | Administración de personas sin borrar historial |
-| 1 | `02_datos_prueba.sql` | Médicos 4 y 5, y Ginecología | Más de un médico por especialidad para probar la carga |
-| 2 | `02_datos_prueba.sql` | Horario partido y miércoles reducido | Horario real de la clínica |
-| 3 | `02_datos_prueba.sql` | Un token por médico; el token genérico se desactiva | Consecuencia del cambio 4 del esquema |
-| 4 | `02_datos_prueba.sql` | La recepcionista vinculada al token de recepción | Consecuencia del cambio 5 del esquema |
+| Cambio | Archivo | Contenido |
+|:-:|---|---|
+| 1 | `01_schema.sql` | Preferencias del paciente en `solicitud_cita`: franja, hora, especialidad y médico |
+| 2 | `01_schema.sql` | Tabla `nota_clinica` |
+| 3 | `01_schema.sql` | `lista_espera.notificada` |
+| 4 | `01_schema.sql` | `usuario_api.id_medico` y un solo token activo por médico |
+| 5 | `01_schema.sql` | `baja_en` en paciente y médico, tabla `recepcionista` y `usuario_api.id_recepcionista` |
+| 1 | `02_datos_prueba.sql` | Médicos 4 y 5, y Ginecología |
+| 2 | `02_datos_prueba.sql` | Horario partido y miércoles reducido |
+| 3 | `02_datos_prueba.sql` | Un token por médico; el token genérico desactivado |
+| 4 | `02_datos_prueba.sql` | La recepcionista vinculada al token de recepción |
 
 ### 6.6 Médicos y horario estándar
 
@@ -319,7 +300,7 @@ Todos atienden con el mismo horario, que WF-09 asigna también a cada médico nu
 | Lunes, martes, jueves y viernes | 8 cupos | 7 cupos |
 | Miércoles | 2 cupos | 2 cupos |
 
-Durante las pruebas de WF-09 se dio de alta a un sexto médico, de Pediatría, para probar la reasignación de citas entre médicos de la misma especialidad. Ese médico quedó dado de baja al terminar las pruebas.
+La base contiene además un sexto médico, de Pediatría, creado para probar la reasignación de citas entre médicos de la misma especialidad y dado de baja al terminar esas pruebas.
 
 ---
 
@@ -381,7 +362,7 @@ Webhook (POST /webhook/cita)
 
 El token nunca se compara en claro: se calcula su SHA-256 y se contrasta contra el hash almacenado.
 
-`Valida datos` revisa el DPI (trece dígitos), el teléfono (ocho dígitos, iniciando entre 2 y 8), el formato del correo, la fecha preferida (una fecha que exista en el calendario y no sea pasada), la fecha de nacimiento (que exista, no sea futura ni anterior a 1900), el tipo de consulta dentro de una lista cerrada, los campos obligatorios y la longitud del motivo. Valida además las preferencias del paciente: la franja, que la hora caiga dentro de una franja real y coincida con la franja pedida, y que el médico y la especialidad pedidos existan entre los médicos activos y sean coherentes entre sí. Los errores se acumulan en un arreglo para devolverlos todos en una sola respuesta, en lugar de uno por intento. Los datos siguen al siguiente nodo ya recortados, los mismos valores que se validaron.
+`Valida datos` revisa el DPI (trece dígitos), el teléfono (ocho dígitos, iniciando entre 2 y 8), el formato del correo, la fecha preferida (una fecha que exista en el calendario y no sea pasada), la fecha de nacimiento (que exista, no sea futura ni anterior a 1900), el tipo de consulta dentro de una lista cerrada, los campos obligatorios y la longitud del motivo. Valida además las preferencias del paciente: la franja, que la hora caiga dentro de una franja real y coincida con la franja pedida, y que el médico y la especialidad pedidos existan entre los médicos activos y sean coherentes entre sí. El médico pedido se acepta solo como un número entero positivo, o un texto que lo represente: un valor como `true` se rechaza (sección 12.23). Los errores se acumulan en un arreglo para devolverlos todos en una sola respuesta, en lugar de uno por intento. Los datos siguen al siguiente nodo ya recortados, los mismos valores que se validaron.
 
 `Guarda solicitud` crea al paciente o reutiliza el existente por su huella de DPI, y en la misma sentencia inserta la solicitud. Si el paciente existe pero está inactivo o dado de baja, la sentencia no inserta nada y el flujo responde 409.
 
@@ -404,7 +385,7 @@ Schedule Trigger (cada 5 min)
 
 `Busca cupo` devuelve, por cada médico activo y cada franja del día pedido, los cupos, las citas ocupadas y la lista de horas ya tomadas, en hora de Guatemala. Los médicos inactivos quedan fuera desde la consulta.
 
-`Reparte cupos` aplica las preferencias del paciente: el médico pedido o, si no pidió médico, los de la especialidad pedida, y sin especialidad, Medicina General. Filtra por franja y por la hora exacta si la pidió, elige al médico con menos carga y asigna el primer hueco de treinta minutos libre.
+`Reparte cupos` aplica las preferencias del paciente: el médico pedido o, si no pidió médico, los de la especialidad pedida, y sin especialidad, Medicina General. Filtra por franja y por la hora exacta si la pidió, elige al médico con menos carga y asigna el primer hueco de treinta minutos libre. Como cada cita dura treinta minutos, una hora se considera libre solo si ninguna cita del médico empieza a menos de treinta minutos de ella (sección 12.25).
 
 **Por qué el reparto se resuelve en un nodo Code y no en SQL.** Todos los elementos del lote se evalúan antes de que se inserte ninguna cita, de modo que una consulta de disponibilidad devolvería el mismo recuento para todos y los asignaría al mismo horario. `Reparte cupos` mantiene el conteo en memoria durante el lote, evitando la colisión.
 
@@ -420,9 +401,7 @@ Schedule Trigger (cada 5 min)
 
 Los correos van a MailHog e incluyen únicamente fecha, médico y especialidad, o el aviso de espera. No transportan DPI, teléfono ni diagnóstico: es una aplicación deliberada del principio de minimización de datos.
 
-La segunda rama resolvió una situación concreta: el paciente sin cupo colgaba el teléfono creyendo que tenía cita, y solo se enteraba si alguien cancelaba.
-
-> **Captura 3 — Notificación recibida.** Correo en MailHog con la fecha en formato local, sin datos identificativos ni clínicos.
+La segunda rama existe para que el paciente sin cupo sepa que quedó en espera y no crea que ya tiene cita.
 
 ### WF-04 · Reasignación de cupos liberados
 
@@ -489,8 +468,6 @@ El documento separa dos bloques de indicadores: la actividad de los últimos sie
 
 La semana se numera según la norma ISO, y el archivo se nombra `semana_AAAA-SS.pdf`. El reporte contiene exclusivamente conteos y nombres de médicos activos, sin ningún dato de paciente, lo que permite entregarlo por correo externo.
 
-> **Captura 11 — Reporte generado.** PDF del reporte semanal con las secciones de actividad y acumulados.
-
 ### WF-07 · Registro de nota clínica
 
 Permite al médico registrar el diagnóstico y las indicaciones de una consulta, cifrados y firmados con su identidad.
@@ -512,7 +489,7 @@ Webhook (POST /webhook/nota)
   → Respuesta             Respond to Webhook
 ```
 
-El cuerpo de la petición contiene `id_cita`, `diagnostico` e `indicaciones`, estas últimas opcionales. **El médico que firma no viene en el cuerpo: sale del token.** Así nadie puede escribir una nota a nombre de otro médico, aunque conozca el formato de la petición.
+El cuerpo de la petición contiene `id_cita`, `diagnostico` e `indicaciones`, estas últimas opcionales; `id_cita` se acepta solo como un entero positivo (sección 12.24). **El médico que firma no viene en el cuerpo: sale del token.** Así nadie puede escribir una nota a nombre de otro médico, aunque conozca el formato de la petición.
 
 `Busca la cita` exige que la cita sea del médico que llama, que tenga expediente abierto y que esté atendida o confirmada con la hora ya pasada. No se escribe un diagnóstico antes de la consulta, ni sobre el paciente de otro médico.
 
@@ -533,13 +510,13 @@ Webhook (POST /webhook/historial)
   → Respuesta            Respond to Webhook
 ```
 
-El cuerpo contiene solo `id_cita`, no `id_paciente`. El paciente se deduce de una cita propia del médico, confirmada o atendida, de modo que un médico solo puede leer el historial de pacientes con quienes tiene o tuvo una cita. Devuelve las diez notas más recientes, cada una con el médico que la firmó, su especialidad y la fecha en hora local.
+El cuerpo contiene solo `id_cita`, un entero positivo, y no `id_paciente`. El paciente se deduce de una cita propia del médico, confirmada o atendida, de modo que un médico solo puede leer el historial de pacientes con quienes tiene o tuvo una cita. Devuelve las diez notas más recientes, cada una con el médico que la firmó, su especialidad y la fecha en hora local.
 
 Es el primer flujo que descifra datos y el primero que audita una lectura. La lectura se registra aunque el historial esté vacío, porque lo que se audita es el acceso y no el resultado.
 
 ### WF-09 · Administración de personas
 
-Permite al administrador dar de alta, desactivar, reactivar y dar de baja a recepcionistas, pacientes y médicos. Es el flujo más grande del sistema, y se construyó en cinco bloques probados por separado.
+Permite al administrador dar de alta, desactivar, reactivar y dar de baja a recepcionistas, pacientes y médicos. Es el flujo más grande del sistema.
 
 ```
 Webhook (POST /webhook/admin)
@@ -571,7 +548,7 @@ El cuerpo de la petición lleva siempre `accion` y `entidad`, y los demás campo
 | `dar_baja` | las tres | `id` | 200 |
 | `reactivar` | las tres | `id` | 200; médico y recepcionista con token nuevo |
 
-Los rechazos propios del flujo son 404 cuando la persona no existe, y 409 en cuatro casos: el colegiado ya existe, la persona fue dada de baja, la persona ya está activa al reactivarla, o el paciente tiene citas futuras o solicitudes en curso.
+El `id` se acepta solo como un entero positivo (sección 12.24). Los rechazos propios del flujo son 404 cuando la persona no existe, y 409 en cuatro casos: el colegiado ya existe, la persona fue dada de baja, la persona ya está activa al reactivarla, o el paciente tiene citas futuras o solicitudes en curso.
 
 **Una sola sentencia por operación.** Cada operación que escribe —la persona, su token, sus citas y su eslabón en la bitácora— se resuelve en una única sentencia SQL con expresiones `with`. PostgreSQL ejecuta una sentencia completa o no ejecuta nada, de modo que no puede quedar, por ejemplo, un token activo sin su registro en la bitácora. En los demás flujos la escritura y la bitácora son dos nodos; aquí no, porque un cambio de identidad sin rastro es justo lo que la auditoría debe impedir.
 
@@ -580,12 +557,10 @@ Los rechazos propios del flujo son 404 cuando la persona no existe, y 409 en cua
 **La reasignación de citas del médico que deja de atender.** Es la ruta más compleja, y se separa en tres pasos:
 
 1. `Lee situacion del medico` reúne en una sola lectura al médico, sus citas futuras confirmadas y los candidatos a recibirlas: médicos activos de su especialidad o de Medicina General, con su horario semanal y las horas que ya tienen ocupadas en esas fechas.
-2. `Reparte reemplazos` decide en memoria, cita por cita, a qué médico pasa conservando la fecha y la hora, o si se cancela porque nadie puede atenderla. Busca primero en la misma especialidad y después en Medicina General, y entre varios candidatos elige al de menor carga ese día. Cada asignación se anota en memoria, para que dos citas del mismo día no excedan el cupo del mismo médico.
+2. `Reparte reemplazos` decide en memoria, cita por cita, a qué médico pasa conservando la fecha y la hora, o si se cancela porque nadie puede atenderla. Busca primero en la misma especialidad y después en Medicina General, y entre varios candidatos elige al de menor carga ese día. Cada asignación se anota en memoria, para que dos citas del mismo día no excedan el cupo del mismo médico, y una hora solo se considera libre si ninguna cita del candidato empieza a menos de treinta minutos de ella, la misma regla de WF-02 (sección 12.25).
 3. `Aplica cambio de medico` ejecuta el plan completo en una sola sentencia: reasigna, cancela, quita al médico como preferencia de las solicitudes que lo pedían, lo desactiva junto con sus tokens y registra un eslabón que resume todo.
 
 De `Aplica cambio de medico` salen dos ramas independientes. Una arma la respuesta al administrador; la otra envía un correo a cada paciente afectado: «su cita sigue en pie, ahora con otro médico», o «su cita ya no está disponible; llame a la clínica». Si el médico no tenía citas, la rama de correos no recibe nada y no se ejecuta, sin dejar al administrador sin respuesta.
-
-> **Captura 13 — Reasignación por baja de un médico.** Respuesta de WF-09 con los conteos y bandeja de MailHog con los avisos de cambio de médico y de cancelación.
 
 ### 7.1 Inventario de tipos de nodo utilizados
 
@@ -642,11 +617,9 @@ hash_actual = SHA-256(hash_anterior || tabla_afectada || id_registro)
 
 El primer registro es el génesis y su `hash_anterior` se compone de sesenta y cuatro ceros, porque no existe un eslabón previo con el cual encadenar. La alteración directa de cualquier registro en la base rompe la correspondencia con el siguiente y queda detectada.
 
-La comprobación se ejecuta con `./scripts/verificar.sh`, que recorre la cadena completa con `scripts/verificar_cadena.js` y reporta si está íntegra o rota. Al cerrar las pruebas de esta versión, la cadena tenía 92 registros íntegros.
+La comprobación se ejecuta con `./scripts/verificar.sh`, que recorre la cadena completa con `scripts/verificar_cadena.js` y reporta si está íntegra o rota. En la última verificación, la cadena tenía 92 registros íntegros.
 
 **Un eslabón por operación.** Como el hash de cada eslabón depende del anterior, una misma sentencia no puede insertar varios eslabones encadenados entre sí. Las operaciones de WF-09 que afectan a muchos registros —por ejemplo, dar de baja a un médico y reasignar sus siete citas— registran un solo eslabón que resume la operación completa, con los identificadores de las citas reasignadas y canceladas.
-
-> **Captura 4 — Integridad de la bitácora.** Salida del verificador antes y después de alterar manualmente un registro.
 
 ### 8.2 Consultas parametrizadas
 
@@ -698,7 +671,7 @@ La respuesta de fondo fue cambiar el método, no pedir más cuidado. Desde ese m
 
 ### 8.5 Revisión de seguridad del sistema terminado
 
-Con el sistema de la v4 completo se ejecutó una revisión sobre el repositorio y su historial, buscando los valores reales de los secretos del `.env` en los archivos versionados y en todos los commits.
+Con el sistema completo se ejecutó una revisión sobre el repositorio y su historial, buscando los valores reales de los secretos del `.env` en los archivos versionados y en todos los commits.
 
 | Comprobación | Resultado |
 |---|---|
@@ -754,9 +727,7 @@ Los cinco primeros son rechazos previstos por el diseño y se resuelven dentro d
 
 El mecanismo se verificó en condiciones reales con fallos de distinta naturaleza: una detención deliberada de PostgreSQL durante la ejecución (CP-08), un fallo de WF-04 al violarse una restricción de unicidad (sección 12.1), un desbordamiento de longitud en el campo `motivo`, el error de sintaxis provocado por un apóstrofe antes de parametrizar las consultas (sección 12.5) y la violación de una llave foránea por un médico inexistente (sección 12.18). En todos los casos el error quedó registrado en `log_errores` y generó la alerta correspondiente.
 
-Varios de los defectos corregidos en esta versión consistieron precisamente en convertir fallos que terminaban en WF-00 en rechazos previstos: un `id_cita` no numérico, un resultado de cierre inválido o un médico inexistente ahora responden 400 o 404 en lugar de provocar una excepción. Un error de datos del usuario no debe llegar al manejador de excepciones: WF-00 queda para lo que de verdad es inesperado.
-
-> **Captura 5 — Alerta de error.** Correo de alerta al administrador recibido en Gmail, con el identificador de registro coincidente con el de `log_errores`.
+Varios de los defectos corregidos durante el desarrollo consistieron precisamente en convertir fallos que terminaban en WF-00 en rechazos previstos: un `id_cita` no numérico, un resultado de cierre inválido o un médico inexistente ahora responden 400 o 404 en lugar de provocar una excepción. Un error de datos del usuario no debe llegar al manejador de excepciones: WF-00 queda para lo que de verdad es inesperado.
 
 ---
 
@@ -781,8 +752,6 @@ La ficha del Avance 2 solicita evidenciar que la información se mantiene consis
 4. Se rechazó una solicitud de un paciente inactivo y se contaron después sus solicitudes: seguía teniendo una sola. El rechazo no dejó ninguna fila a medias.
 
 La segunda y la tercera comprobación son las más relevantes, porque demuestran que la consistencia no depende de que los flujos se ejecuten una sola vez ni de que nadie más escriba al mismo tiempo, sino de reglas de la base que se cumplen siempre.
-
-> **Captura 6 — Consistencia verificada.** Consulta de verificación mostrando un único expediente tras reprocesar la misma cita.
 
 ---
 
@@ -844,10 +813,6 @@ El último punto importa tanto como los anteriores: se liberó un solo cupo y se
 
 La cita nueva quedó con `notificada = false` y WF-03 la notificó en su siguiente ejecución, completando la cadena cancelación → reasignación → notificación → expediente sin intervención manual.
 
-> **Captura 7 — Caso 7.** Respuesta del endpoint de cancelación con los tres identificadores.
->
-> **Captura 8 — Caso 7, verificación.** Consultas mostrando el estado de las citas, la lista de espera y las solicitudes tras la reasignación.
-
 #### Detalle del caso 10 — Cierre de cita
 
 Se verifican los tres caminos del flujo en una sola secuencia:
@@ -859,8 +824,6 @@ Se verifican los tres caminos del flujo en una sola secuencia:
 | Token de médico, cita de fecha futura | 404 | 404 |
 
 El segundo caso demuestra que la autorización distingue entre roles válidos: recepción es un emisor legítimo del sistema, pero no está facultado para cerrar citas. El tercero demuestra que la validación temporal opera dentro de la propia consulta y no en la lógica del flujo.
-
-> **Captura 12 — Caso 10.** Los tres caminos del flujo de cierre con sus códigos de respuesta.
 
 ### 11.2 Preferencias del paciente
 
@@ -907,7 +870,7 @@ El segundo caso demuestra que la autorización distingue entre roles válidos: r
 |---|---|
 | Solicitud sin preferencias | 201 |
 | Especialidad escrita `pediatría`, en minúsculas y con tilde | 201; guardada como `Pediatria`, la escritura de la base |
-| Médico inexistente (`id_medico_solicitado: 99`) | 400; antes violaba la llave foránea y terminaba en WF-00 |
+| Médico inexistente (`id_medico_solicitado: 99`) | 400 |
 | Especialidad sin médicos (`Cardiologia`) | 400 |
 | Médico de Pediatría pedido con la especialidad Ginecología | 400 |
 | Médico existente pero inactivo | 400 |
@@ -919,8 +882,7 @@ El segundo caso demuestra que la autorización distingue entre roles válidos: r
 
 | Flujo | Entrada | Resultado |
 |---|---|---|
-| WF-09 | Recepcionista `Pop Choc, Ana Lucia`, antes de la corrección | Nombre guardado como `Pop Choc` y `Ana Lucia` guardado como huella del token: defecto 12.22 confirmado |
-| WF-09 | Recepcionista `Coc Caal, Maria Jose`, después de la corrección | Nombre íntegro, huella válida y token funcional |
+| WF-09 | Recepcionista `Coc Caal, Maria Jose` | Nombre íntegro, huella válida y token funcional |
 | WF-01 | Nombre `Ana, Maria`, apellido `Coc, Caal` y motivo `dolor de cabeza, fiebre y tos`, sin preferencias | Los tres íntegros; preferencias nulas |
 | WF-01 | Nombre, apellido y motivo con comas, con franja, hora y especialidad | Todos íntegros, cada uno en su columna |
 | WF-07 | Diagnóstico e indicaciones con comas, y una segunda nota sin indicaciones | Ambas notas guardadas; la segunda con indicaciones nulas |
@@ -1022,8 +984,6 @@ Las siete citas pasaron al otro pediatra con la misma fecha y hora, y los siete 
 
 Las dos operaciones recorrieron las tres ramas de la reasignación: reasignar, cancelar y liberar preferencias.
 
-> **Captura 14 — Correo de cancelación.** Aviso al paciente de que su cita no está disponible y debe llamar a la clínica.
-
 ### 11.9 Reproducción de las pruebas
 
 Los casos de entrada se ejecutan sobre cada endpoint variando un único elemento de la petición, lo que permite aislar el control que cada uno verifica. Existe una colección de Insomnia con las peticiones y un entorno base donde se completan los tokens tras importarla; los tokens no se versionan.
@@ -1032,17 +992,29 @@ El README documenta cada caso con su comando ejecutable. Las fechas de los ejemp
 
 **Casos destinados al video de demostración:** el caso 1 corresponde al escenario normal y el caso 8 al escenario con error, ambos exigidos explícitamente por la guía. El recorrido entre médicos —una nota escrita un día y el historial consultado otro— y la baja de un médico con reasignación de sus citas se proponen como demostración adicional.
 
-### 11.10 Pruebas unitarias y de integración
+### 11.10 Pruebas unitarias, simulación y cobertura
 
-> **Sección en construcción.** Se completará con las pruebas unitarias de los nodos Code ejecutadas con Jest, las pruebas de integración y el informe de cobertura.
+Los cincuenta y siete nodos Code del sistema se probaron de forma unitaria con Jest, aplicando el equivalente de lo visto en el curso con JUnit, Mockito y JaCoCo.
 
-La preparación de estas pruebas ya produjo un resultado: al recopilar en un solo archivo el código de los nodos Code para probarlo, aparecieron los defectos 12.11 a 12.17. La sección 12 lo detalla.
+| Tipo de prueba | Equivalente en el curso | Resultado |
+|---|:-:|---|
+| Pruebas unitarias | JUnit | 857 pruebas en 57 nodos, todas superadas |
+| Simulación de dependencias | Mockito | 53 verificaciones en 52 nodos, todas superadas |
+| Cobertura de código | JaCoCo | 100 % de líneas, sentencias y funciones; 99,75 % de ramas, sobre un umbral exigido del 80 % |
+
+Las pruebas detectaron tres defectos que ninguno de los casos ejecutados contra los endpoints había revelado, documentados en la sección 12 como 12.23 a 12.25. Las pruebas que fallaron no se modificaron: se corrigió el nodo en n8n, se exportó el flujo y la misma prueba pasó.
+
+Antes de escribir las pruebas, su preparación ya había producido un resultado: al recopilar en un solo archivo el código de los nodos Code, aparecieron los defectos 12.11 a 12.17.
+
+Las pruebas de integración contra los webhooks y la base reales quedan como trabajo futuro (sección 16.2).
+
+El detalle de cada nodo, sus casos de prueba y las capturas de cada ejecución se encuentran en el documento de pruebas, `docs/documento-pruebas.pdf`.
 
 ---
 
 ## 12. Defectos detectados y corregidos
 
-Durante el desarrollo se detectaron veintidós defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, o mientras el código no se leyó completo, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
+Durante el desarrollo se detectaron veinticinco defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, o mientras el código no se leyó completo, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
 
 | # | Flujo o tabla | Defecto | Cómo se detectó |
 |:-:|---|---|---|
@@ -1068,6 +1040,9 @@ Durante el desarrollo se detectaron veintidós defectos. Ninguno era visible mie
 | 12.20 | WF-01 | Cualquier texto se aceptaba como especialidad | Análisis para WF-09 |
 | 12.21 | WF-01 | Pacientes inactivos podían seguir pidiendo citas | Análisis para WF-09 |
 | 12.22 | WF-00, WF-01, WF-07, WF-09 | Las comas partían los parámetros de texto | Prueba deliberada en WF-09 |
+| 12.23 | WF-01 | El valor `true` se aceptaba como el médico 1 | Pruebas unitarias |
+| 12.24 | WF-07, WF-08, WF-09 | El valor `true` se aceptaba como el identificador 1 | Pruebas unitarias |
+| 12.25 | WF-02, WF-09 | Citas a horas no múltiplo de treinta minutos podían traslaparse | Pruebas unitarias |
 
 ### 12.1 Restricción de unicidad que no distinguía citas canceladas
 
@@ -1118,8 +1093,6 @@ Tras la corrección se depuraron los ciento setenta registros espurios y se cons
 ```
 
 El correo muestra ahora `21/09/2026 a las 08:30`.
-
-> **Captura 9 — Antes y después.** Bandeja de MailHog mostrando simultáneamente la notificación con formato ISO en UTC y la corregida en hora local.
 
 ### 12.4 Ciclo de vida de la cita incompleto
 
@@ -1260,6 +1233,18 @@ El caso más grave era WF-00: los mensajes de error suelen contener comas, y el 
 
 **Observación.** El defecto existía desde la parametrización de la sección 12.5. La corrección de la inyección separó la consulta de los datos, pero la lista de datos se seguía armando a partir de un texto. Durante semanas no se manifestó porque ninguna prueba usaba comas. Se había anotado como sospecha, y se confirmó con una prueba diseñada para eso: un nombre con coma en el primer nodo de texto libre del flujo nuevo.
 
+### 12.23 a 12.25 · Defectos encontrados por las pruebas unitarias
+
+Los tres aparecieron al ejecutar las pruebas unitarias de la sección 11.10. Ninguno de los casos ejecutados contra los endpoints los había revelado, porque ninguno enviaba esas entradas.
+
+**12.23 · El valor `true` se aceptaba como el médico 1.** `Valida datos` de WF-01 convertía el médico solicitado con `Number()`, y en JavaScript `Number(true)` es `1`. Una petición con `"id_medico_solicitado": true` superaba la validación y la solicitud quedaba a nombre de la médica 1. **Corrección:** el valor se acepta solo si es un número entero positivo o un texto que cumpla `/^[1-9]\d*$/`, la misma regla que ya aplicaban WF-04 y WF-05 a `id_cita`.
+
+**12.24 · El mismo defecto en WF-07, WF-08 y WF-09.** `Valida datos` de los tres flujos repetía la conversión, sobre `id_cita` en los dos primeros y sobre `id` en el tercero. El caso más grave era WF-09: una petición con `"id": true` desactivaba o daba de baja a la persona 1, y la baja es definitiva. **Corrección:** la misma regla de 12.23 en los tres nodos.
+
+**12.25 · Citas que podían traslaparse.** Cada cita dura treinta minutos, pero `Reparte cupos` de WF-02 y `Reparte reemplazos` de WF-09 solo comparaban la hora exacta. Una cita pedida a las 08:15 no impedía asignar automáticamente otra a las 08:00 con el mismo médico: dos pacientes en el consultorio a la vez. El índice `uqcita_medico_horario` tampoco lo detectaba, porque solo impide dos citas con la misma fecha y hora exactas. **Corrección:** una función `estaLibre`, la misma en los dos nodos, que considera libre una hora solo si ninguna cita del médico empieza a menos de treinta minutos de ella.
+
+**Observación.** Las pruebas no encontraron estos defectos ejecutando el código, sino eligiendo entradas en los bordes de cada regla: un booleano donde se espera un número, una hora que no cae en la cuadrícula de media hora.
+
 ---
 
 ## 13. Decisiones de diseño
@@ -1281,7 +1266,7 @@ Las decisiones siguientes no surgen de un requisito escrito sino del análisis d
 | **Las reglas importantes viven también en la base** | Ninguna vía de entrada, ni siquiera una consulta manual, puede saltarse una restricción declarada. |
 | **La baja es lógica, no un borrado** | Un paciente con citas tiene expediente y notas inmutables, y la bitácora guarda el identificador de esas filas. Borrarlo rompería las llaves foráneas o dejaría eslabones apuntando a nada. |
 | **Tres estados para las personas, con dos columnas** | Se conservó el booleano `activo` y se agregó `baja_en`, en lugar de reemplazarlo por un campo de estado, para no romper los flujos que ya lo leían. |
-| **La recepcionista es una persona, no solo un token** | Antes del cambio 5 no había a quién suspender: solo una fila de tokens. Con su tabla, el token identifica a la persona, igual que el del médico. |
+| **La recepcionista es una persona, no solo un token** | Tiene su propia tabla, de modo que hay a quién suspender y el token identifica a la persona, igual que el del médico. |
 | **El paciente solo nace en WF-01** | Es donde se valida y se cifra su DPI. Permitir el alta desde administración crearía una segunda puerta para el mismo dato. |
 | **Reactivar entrega siempre un token nuevo** | El token anterior queda inactivo como rastro, igual que en cualquier rotación. |
 | **No se reactiva a quien ya está activo** | Darle un token nuevo exigiría apagar el viejo y crear el nuevo en la misma sentencia, y PostgreSQL no garantiza el orden de ejecución de las partes de una sentencia: el índice de un solo token activo podría rechazarla. El camino es desactivar y reactivar, y cada paso queda en la bitácora. |
@@ -1305,7 +1290,7 @@ ProyectoSIGAC/
 ├── .env.example                  Plantilla de variables, con marcadores
 ├── .gitignore                    Excluye .env y artefactos generados
 ├── sql/
-│   ├── 01_schema.sql             Doce tablas: diseño de agosto y cambios 1 a 5
+│   ├── 01_schema.sql             Doce tablas: esquema base y cambios 1 a 5
 │   └── 02_datos_prueba.sql       Médicos, horario, tokens y cambios 1 a 4
 ├── workflows/
 │   ├── WF-00_errores.json
@@ -1321,9 +1306,12 @@ ProyectoSIGAC/
 ├── scripts/
 │   ├── verificar_cadena.js       Validador de la bitácora encadenada
 │   └── verificar.sh
-├── pruebas/                      Pruebas unitarias e integración con Jest
+├── pruebas/                      Pruebas unitarias con Jest
+│   ├── nodos/                    Un archivo por nodo Code, generado desde workflows/
+│   └── tests/                    Un archivo de prueba por nodo
 ├── docs/
 │   ├── documento-tecnico.md      Este documento
+│   ├── documento-pruebas.pdf     Detalle de las pruebas unitarias, simulación y cobertura
 │   └── uml/                      Diagramas .puml y PDF exportado
 └── reportes/                     Salida de WF-06, excluida del control de versiones
 ```
@@ -1332,25 +1320,22 @@ ProyectoSIGAC/
 
 **Nombres de archivo.** Prefijo numérico cuando el orden de ejecución importa, guiones bajos en lugar de espacios y ausencia de tildes. Los flujos exportados siguen el patrón `WF-NN_concepto.json`, ya que n8n los descarga con el nombre del flujo y espacios intercalados.
 
-**Archivos SQL.** El diseño original se conserva intacto arriba y los cambios se agregan abajo, cada uno con su motivo (sección 6.5).
+**Archivos SQL.** El esquema base va arriba y los cambios se agregan abajo, cada uno con su motivo (sección 6.5).
 
 **Commits.** Uno por bloque funcional cerrado y probado, con prefijo de gitmoji que identifica su naturaleza y mensaje en español.
 
 **Verificación previa al commit.** Búsqueda de cadenas hexadecimales de sesenta y cuatro caracteres en los archivos versionados, y revisión de `git status` para confirmar que solo entra lo que corresponde. Los flujos exportados contienen legítimamente una cadena de ese tipo: el identificador de instancia de n8n, idéntico en todos ellos.
 
-### 14.2 Control de versiones en tres capas
+### 14.2 Control de versiones en dos capas
 
-El proyecto mantiene tres registros de evolución complementarios:
+El proyecto mantiene dos registros de evolución complementarios:
 
 | Capa | Qué registra |
 |---|---|
 | Historial de Git | Cada bloque funcional cerrado y probado |
 | Versiones nombradas en n8n | Cada publicación de un flujo, con nombre y descripción del cambio |
-| Control de versiones de este documento | Los cambios de fondo entre entregas |
 
-La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado: guardar no basta para que un cambio surta efecto en producción, es necesario publicar, y cada publicación exige nombre de versión y descripción. WF-09, por ejemplo, se publicó una vez por cada bloque y por cada corrección.
-
-> **Captura 10 — Versionado de flujos.** Historial de versiones publicadas de un flujo en n8n.
+La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado: guardar no basta para que un cambio surta efecto en producción, es necesario publicar, y cada publicación exige nombre de versión y descripción.
 
 ---
 
@@ -1371,32 +1356,26 @@ La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado
 
 **Los ocho mínimos están cumplidos.**
 
-### 15.2 Ficha de la reunión de Avance 2 (sección 14 de la guía)
-
-| Elemento solicitado | Estado |
-|---|---|
-| Un proceso automatizado con n8n funcionando | Diez flujos publicados y operativos |
-| Evidencia de manejo de errores y validaciones | WF-00, `log_errores` y los rechazos 400, 401, 403, 404 y 409 |
-| Evidencia de la medida de ciberseguridad implementada | Diez capas, sección 8 |
-| Evidencia de pruebas realizadas | Sección 11 |
-| Que la información se mantiene consistente tras varias operaciones | Sección 10, con cuatro comprobaciones ejecutadas |
-| Lo que falta por terminar antes de la entrega final | Sección 16 |
-
 ---
 
 ## 16. Trabajo pendiente
 
-| # | Tarea | Qué aporta |
-|:-:|---|---|
-| 1 | Pruebas unitarias de los nodos Code con Jest, pruebas de integración e informe de cobertura | Lo pedido en clase; completa la sección 11.10 |
-| 2 | Actualizar el README: instalación desde cero con la generación de los tokens, los nuevos endpoints y cómo correr las pruebas | Reproducibilidad, exigida por la rúbrica |
-| 3 | Actualizar los diagramas UML de `docs/uml/` | Clases, casos de uso y secuencia con `nota_clinica`, `recepcionista` y WF-07 a WF-09 |
-| 4 | Grabar el video de demostración de 5 a 8 minutos | Entregable exigido por la sección 4 de la guía |
-| 5 | Añadir `sql/03_verificacion.sql` | Consultas de comprobación reproducibles |
+### 16.1 Limitaciones conocidas
 
-### 16.1 Trabajo futuro: operaciones de recepción
+Dos situaciones se identificaron y no se han corregido. Se declaran para que no se den por resueltas.
 
-La numeración WF-09 quedó asignada a la administración de personas, de modo que la fase de operaciones de recepción se renumera:
+| Situación | Detalle | Gravedad |
+|---|---|:-:|
+| WF-05 no restringe al médico | El cierre exige el rol `medico`, pero no compara el médico del token con el de la cita: un médico puede cerrar la cita de otro. Desde el cambio 4, el token identifica al médico, de modo que la corrección consiste en filtrar por `id_medico` como ya hacen WF-07 y WF-08 | Media |
+| Fecha preferida y zona horaria | `Valida datos` de WF-01 comprueba que la fecha preferida no sea pasada comparándola con la fecha del servidor. Si el servidor trabaja en UTC, entre las 18:00 y la medianoche de Guatemala ya es el día siguiente, y una solicitud para ese mismo día podría rechazarse como pasada. Está pendiente de verificar | Baja, por verificar |
+
+### 16.2 Trabajo futuro: pruebas de integración
+
+Pruebas contra los webhooks y la base reales: los caminos 401, 403, 400, 404, 409 y de éxito de cada endpoint, un error provocado que aparezca en `log_errores`, el recorrido completo desde la solicitud hasta el expediente, y la cadena de la bitácora íntegra al final. Las pruebas unitarias verifican la lógica de cada nodo; estas verificarían que los nodos funcionan juntos.
+
+### 16.3 Trabajo futuro: operaciones de recepción
+
+Las operaciones de recepción se planifican como cuatro flujos:
 
 | Flujo | Propósito |
 |---|---|
@@ -1407,9 +1386,9 @@ La numeración WF-09 quedó asignada a la administración de personas, de modo q
 
 La consulta de huecos puede reutilizar la lógica de `Busca cupo`, que ya devuelve las horas ocupadas por franja.
 
-### 16.2 Trabajo futuro: aplicación web
+### 16.4 Siguiente fase: aplicación web
 
-Pantallas de recepción (panel, nueva solicitud, calendario, listado y detalle de citas, reprogramación y lista de espera) y de médico (agenda del día, historial, registro de nota y cierre de cita), consumiendo los mismos endpoints. Existen tres mockups en Figma con la paleta acordada (`#122620`, `#FAF6EC` y `#1F7A5C`).
+La aplicación web es la siguiente fase del proyecto, solicitada por el catedrático. Tendrá pantallas de recepción (panel, nueva solicitud, calendario, listado y detalle de citas, reprogramación y lista de espera) y de médico (agenda del día, historial, registro de nota y cierre de cita), consumiendo los mismos endpoints. Existen tres mockups en Figma con la paleta acordada (`#122620`, `#FAF6EC` y `#1F7A5C`).
 
 ---
 
@@ -1423,8 +1402,8 @@ La rúbrica de la sección 11 de la guía asigna quince puntos en modalidad indi
 | Buen diseño técnico | 3 | Arquitectura en contenedores con publicación restringida, modelo de doce tablas con restricciones declaradas en la base, operaciones atómicas en una sola sentencia y manejo de errores centralizado |
 | Ciberseguridad | 3 | Diez capas que cubren validación, control de acceso con identidad por persona, cifrado y auditoría de lectura, con los incidentes del desarrollo documentados y remediados |
 | Manejo de errores y de los datos | 2 | WF-00, tabla `log_errores`, bitácora encadenada por hash, baja lógica sin pérdida de historial y consistencia verificada tras operaciones repetidas |
-| Documentación clara | 2 | Este documento, con veintidós defectos y veinticuatro decisiones de diseño justificadas, y el README de instalación, uso y pruebas |
-| Evidencia y que se pueda reproducir | 1 | Casos de prueba por fase con sus comandos; el entorno completo se levanta con un solo comando |
+| Documentación clara | 2 | Este documento, con veinticinco defectos y veinticuatro decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
+| Evidencia y que se pueda reproducir | 1 | Casos de prueba por fase con sus comandos; 857 pruebas unitarias que se ejecutan sin levantar el sistema; el entorno completo se levanta con un solo comando |
 | **TOTAL** | **15** | |
 
 ---
@@ -1436,26 +1415,6 @@ Al ser modalidad individual, aplican únicamente los cuatro primeros.
 | Entregable | Formato | Estado |
 |---|:-:|---|
 | Repositorio Git con README, docker-compose, `workflows/` y `docs/` | GitHub | Completo; README por actualizar |
-| Documento técnico | Markdown, Word o PDF | Este documento, versión 5 |
+| Documento técnico | Word o PDF | Este documento |
 | Diagrama de arquitectura y del flujo principal | Imagen o PDF | En `docs/uml/`, por actualizar |
 | Video de demostración de 5 a 8 minutos, con presencia en cámara | Enlace de Drive | Pendiente |
-
----
-
-## 19. Control de versiones del documento
-
-| Versión | Fecha | Cambios principales |
-|:-:|---|---|
-| v1 | 7 de agosto de 2026 | Versión inicial presentada en el Avance 1. Diseño del sistema, arquitectura propuesta y flujos previstos. |
-| v2 | Agosto de 2026 | Ampliación del modelo de datos y de las capas de ciberseguridad. |
-| v3 | 18 de septiembre de 2026 | Actualización para el Avance 2. Se corrige el número de flujos (de seis previstos a cinco implementados) y de tipos de nodo (de quince a diez). Se documenta el cifrado AES-256-GCM y la coexistencia con el formato anterior. Se actualiza el plan de pruebas a nueve casos superados. Se incorporan la sección de consistencia y la de defectos corregidos. |
-| v4 | 18 de octubre de 2026 | Siete flujos operativos con la incorporación de WF-05 (cierre de cita) y WF-06 (reporte semanal en PDF). Cuarto contenedor, Gotenberg. Doce tipos de nodo. Se corrige la exclusión de alcance relativa a servicios externos de correo. Sexta capa de ciberseguridad: consultas parametrizadas. Revisión de seguridad del sistema terminado, riesgo de acceso a archivos internos de n8n y tres defectos nuevos. El plan de pruebas pasa de nueve a doce casos. |
-| **v5** | **23 de octubre de 2026** | Diez flujos con la incorporación de WF-07 (nota clínica), WF-08 (historial clínico) y WF-09 (administración de personas); WF-03 con aviso de lista de espera. Doce tablas con `nota_clinica` y `recepcionista`, y cinco cambios al esquema documentados con su motivo. Preferencias del paciente en la solicitud. Diez capas de seguridad: identidad de la persona en el token, auditoría de lectura e historial de ejecuciones sin datos sensibles. Incidente 3 y riesgos residuales aceptados. Se corrigen la exclusión «sin endpoints de lectura» (4.4) y la afirmación de que la trazabilidad del expediente ya estaba resuelta (2.2). Dieciséis defectos nuevos, de 12.7 a 12.22. Nueva sección de decisiones de diseño. El plan de pruebas se organiza por fases. Fase de operaciones de recepción renumerada a WF-10 a WF-13. |
-
-### 19.1 Nota sobre la evolución del documento
-
-Cada versión de este documento ha corregido afirmaciones de la anterior que el diseño daba por hechas y la implementación no confirmó. La v3 redujo seis flujos a cinco y quince tipos de nodo a diez. La v4 volvió a subir esas cifras porque lo pendiente se construyó, y corrigió la exclusión del correo externo y el riesgo de inyección que se declaraba aceptable.
-
-La v5 corrige tres afirmaciones de naturaleza distinta. Dos son de alcance: que el sistema no tenía endpoints de lectura, y que la trazabilidad del expediente estaba resuelta cuando el expediente se abría vacío. La tercera vive en el propio código: dos comentarios que prometían validaciones que ningún nodo hacía (sección 12.18). Es la misma distancia entre lo que se afirma y lo que se hace, trasladada del documento al código fuente.
-
-Se declaran explícitamente en lugar de sustituirse en silencio, porque la distancia entre lo que un documento afirma y lo que el sistema hace es, en sí misma, un resultado del análisis.
