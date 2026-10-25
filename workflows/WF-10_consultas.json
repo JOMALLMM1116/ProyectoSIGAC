@@ -1,0 +1,351 @@
+{
+  "name": "WF-10 Consultas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consulta",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c1db9f45-020d-4505-ba99-91c28a126e2d",
+      "name": "Webhook",
+      "webhookId": "042f26de-101b-4e03-a6f7-0b92cbf9c1d2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hash del token — WF-10 Consultas\n// Calcula el SHA-256 del token recibido y normaliza la consulta pedida.\n// Nunca devuelve cadenas vacías: los parámetros de Postgres las descartan.\n\nconst crypto = require('crypto');\n\nconst entrada = $input.first().json;\nconst cabeceras = entrada.headers || {};\nconst cuerpo = entrada.body || {};\n\nconst token = String(cabeceras['x-sigac-token'] || '').trim();\n\nconst CONSULTAS = ['sesion', 'citas', 'lista_espera', 'agenda', 'personas'];\nconst consulta = CONSULTAS.includes(cuerpo.consulta) ? cuerpo.consulta : 'invalida';\n\nreturn [{\n  json: {\n    token_hash: token\n      ? crypto.createHash('sha256').update(token).digest('hex')\n      : 'sin-token',\n    consulta\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "44c22df1-ad22-4c5c-9bf2-a8d5c3687298",
+      "name": "Hash del token"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select u.id as id_usuario,\n       u.rol,\n       coalesce(m.nombre, r.nombre, 'Administrador') as nombre,\n       m.especialidad\nfrom usuario_api u\nleft join medico m\n       on m.id = u.id_medico\n      and m.activo\nleft join recepcionista r\n       on r.id = u.id_recepcionista\n      and r.activo\nwhere u.token_hash = $1\n  and u.activo\n  and (u.rol = 'admin' or m.id is not null or r.id is not null);",
+        "options": {
+          "queryReplacement": "={{ $json.token_hash }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "0a2040f9-ea90-47ae-a768-d67ccb6c5a2c",
+      "name": "Identifica al usuario",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e69519e2-99c4-4e4e-86ab-1d51e2742eb7",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "b567e5e6-793a-4c77-91a3-ce2a6534a4fe",
+      "name": "¿Token válido?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rechazo 401 — WF-10 Consultas\n// Mensaje genérico: no distingue entre token ausente, inexistente,\n// desactivado o de una persona inactiva.\n\nreturn [{\n  json: {\n    codigo: 401,\n    estado: 'rechazado',\n    mensaje: 'No autorizado'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        208
+      ],
+      "id": "aa1b3a1f-456d-4950-a930-b2b1a626d547",
+      "name": "Rechazo 401"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": "={{ $json.codigo }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1808,
+        208
+      ],
+      "id": "7aeb7e60-3589-4f38-8397-6833b922a0f9",
+      "name": "Respuesta"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c34ff06c-d003-4b66-aa46-c7d7e2388679",
+                    "leftValue": "={{ $('Hash del token').first().json.consulta }}",
+                    "rightValue": "sesion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sesion"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "invalida"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        -96
+      ],
+      "id": "de489513-8fc8-43e6-b307-8b52b99d98eb",
+      "name": "Ruta"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rechazo 400 — WF-10 Consultas\n// La consulta no es una de las cinco admitidas, o no vino en el cuerpo.\n\nreturn [{\n  json: {\n    codigo: 400,\n    estado: 'rechazado',\n    mensaje: 'Datos invalidos',\n    errores: ['consulta debe ser sesion, citas, lista_espera, agenda o personas']\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        80
+      ],
+      "id": "dddfd827-7ff5-413a-9685-e07238ccb3ae",
+      "name": "Rechazo 400"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bitacora_auditoria\n  (tabla_afectada, id_registro, accion, rol, datos_enmascarados, hash_anterior, hash_actual)\nselect\n  'usuario_api',\n  $1::int,\n  'select',\n  $2,\n  'inicio de sesion',\n  b.hash_actual,\n  encode(sha256((b.hash_actual || 'usuario_api' || $3)::bytea), 'hex')\nfrom bitacora_auditoria b\norder by b.id desc\nlimit 1\nreturning id, hash_actual;",
+        "options": {
+          "queryReplacement": "={{ $json.id_usuario }}, {{ $json.rol }}, {{ $json.id_usuario }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1136,
+        -256
+      ],
+      "id": "4e20669d-f10b-49e0-acbc-536e55496c80",
+      "name": "Registra inicio de sesion",
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sesión válida — WF-10 Consultas\n// Devuelve solo lo que la pantalla necesita: rol, nombre y, si es médico,\n// su especialidad. Ningún identificador interno sale hacia la web.\n\nconst usuario = $('Identifica al usuario').first().json;\n\nconst respuesta = {\n  codigo: 200,\n  estado: 'autenticado',\n  rol: usuario.rol,\n  nombre: usuario.nombre\n};\n\nif (usuario.rol === 'medico') {\n  respuesta.especialidad = usuario.especialidad;\n}\n\nreturn [{ json: respuesta }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        -240
+      ],
+      "id": "39a3fdc0-a130-4b6c-88be-bb22dce50383",
+      "name": "Sesión valida"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Hash del token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash del token": {
+      "main": [
+        [
+          {
+            "node": "Identifica al usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identifica al usuario": {
+      "main": [
+        [
+          {
+            "node": "¿Token válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token válido?": {
+      "main": [
+        [
+          {
+            "node": "Ruta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 401": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ruta": {
+      "main": [
+        [
+          {
+            "node": "Registra inicio de sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo 400": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registra inicio de sesion": {
+      "main": [
+        [
+          {
+            "node": "Sesión valida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sesión valida": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "YaUUbcxLe9az2HoG",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "bb1bfb0d-9fb5-452c-abaf-bb3ed39cae85",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
+  },
+  "nodeGroups": [],
+  "id": "GpooPg7kSGqgNrus",
+  "tags": []
+}
