@@ -20,7 +20,8 @@ SIGAC automatiza el ciclo **solicitud → autenticación → autorización → v
 clínica → consulta del historial → cierre**, con la ciberseguridad como eje
 transversal del diseño. Un flujo de administración gestiona además el alta, la
 suspensión y la baja de pacientes, médicos y recepcionistas sin borrar su
-historial.
+historial, y un flujo de consultas entrega a la aplicación web la agenda del
+médico, las citas del día, la lista de espera y la lista de personas.
 
 ---
 
@@ -205,7 +206,7 @@ docker compose up -d
 
 ### 4.6 Importar y publicar los flujos
 
-Importar los diez archivos de `workflows/` mediante el menú `...` →
+Importar los once archivos de `workflows/` mediante el menú `...` →
 *Import from File*, en este orden:
 
 | Archivo | Flujo |
@@ -220,17 +221,19 @@ Importar los diez archivos de `workflows/` mediante el menú `...` →
 | `WF-07_nota_clinica.json` | Registro de nota clínica |
 | `WF-08_historial_clinico.json` | Consulta de historial clínico |
 | `WF-09_administracion.json` | Administración de personas |
+| `WF-10_consultas.json` | Consultas para la aplicación web |
 
 Para cada flujo importado:
 
 1. Asignar la credencial `SIGAC PostgreSQL` a sus nodos Postgres. Para los nodos
    Send Email: `SIGAC MailHog` en WF-03 y WF-09, y `SIGAC Gmail` en WF-00 y WF-06.
 2. Entrar a **Settings** del flujo y establecer **Error Workflow** →
-   `WF-00 Manejador de errores`. Esto aplica a los nueve flujos restantes;
+   `WF-00 Manejador de errores`. Esto aplica a los diez flujos restantes;
    WF-00 no apunta a ninguno.
-3. En **WF-01, WF-07, WF-08 y WF-09**, comprobar en **Settings** que las
+3. En **WF-01, WF-07, WF-08, WF-09 y WF-10**, comprobar en **Settings** que las
    ejecuciones exitosas y las manuales estén en *Do not save*. Esos flujos
-   manejan DPI, diagnósticos o tokens en claro, y n8n guardaría una copia en su
+   manejan DPI, diagnósticos o tokens en claro (el nodo Webhook guarda las
+   cabeceras recibidas, y ahí viaja el token), y n8n guardaría una copia en su
    historial de ejecuciones.
 4. Publicar con el botón **Publish**, indicando nombre de versión y descripción.
 
@@ -252,6 +255,7 @@ Para cada flujo importado:
 | `POST /webhook/nota` | WF-07 | medico | Registrar una nota clínica cifrada |
 | `POST /webhook/historial` | WF-08 | medico | Consultar el historial clínico de un paciente |
 | `POST /webhook/admin` | WF-09 | admin | Administrar pacientes, médicos y recepcionistas |
+| `POST /webhook/consulta` | WF-10 | según la consulta | Consultas de solo lectura para la aplicación web |
 
 Todos en `http://localhost:5678`.
 
@@ -367,6 +371,35 @@ registrada en la bitácora, aunque el historial esté vacío.
 - El token de una persona nueva o reactivada se devuelve **una sola vez**, en la
   respuesta. No se puede recuperar después.
 
+### Cuerpo — consultas para la aplicación web (WF-10)
+
+```json
+{
+  "consulta": "agenda",
+  "fecha": "2026-10-27"
+}
+```
+
+Un solo endpoint con cinco consultas. Cada una exige un rol, y ninguna modifica
+datos:
+
+| `consulta` | Rol | Devuelve | `fecha` |
+|---|---|---|---|
+| `sesion` | todos | Rol y nombre de quien llama; si es médico, su especialidad | No aplica |
+| `agenda` | medico | Las citas propias del médico en esa fecha, sin las canceladas, con `tiene_nota` | Opcional; sin ella, hoy |
+| `citas` | recepcion | Las citas de todos los médicos en esa fecha, canceladas incluidas | Opcional; sin ella, hoy |
+| `lista_espera` | recepcion | Las solicitudes en espera, en el orden en que WF-04 repartiría los cupos | No aplica |
+| `personas` | admin | Médicos, recepcionistas y pacientes con su estado: activo, inactivo o baja | No aplica |
+
+- La consulta `sesion` es la que usa la pantalla de inicio de la web para saber a
+  qué pantallas enviar a cada persona. Cada inicio de sesión queda registrado en
+  la bitácora.
+- El médico sale del token: la agenda solo devuelve las citas de quien la pide.
+- Ninguna consulta devuelve DPI, teléfono, correo ni identificadores de token.
+  Solo `id_cita` e `id` de persona, que son los que necesitan los demás
+  endpoints.
+- «Hoy» se calcula en hora de Guatemala, no en la del servidor.
+
 ### Reglas de validación aplicadas
 
 | Campo | Regla |
@@ -383,6 +416,8 @@ registrada en la bitácora, aunque el historial esté vacío.
 | `especialidad_solicitada` | Una especialidad con médicos activos; no distingue mayúsculas ni tildes |
 | `id_medico_solicitado` | Entero positivo de un médico activo, de la especialidad pedida si se indicó |
 | `id_cita`, `id` | Entero positivo |
+| `consulta` (WF-10) | `sesion`, `agenda`, `citas`, `lista_espera` o `personas` |
+| `fecha` (WF-10) | Formato `AAAA-MM-DD` y que exista en el calendario |
 | `nombre`, `apellido` | Obligatorios |
 
 Los errores de validación se acumulan y se devuelven todos en una sola respuesta,
@@ -740,6 +775,67 @@ cualquier token que no sea de administrador, **403**.
 > envía correos a sus pacientes. No ejecutarlo sobre los médicos 1 a 5 sin
 > intención de probar esa operación.
 
+### Consultas para la aplicación web (WF-10)
+
+Quién llama y qué pantallas le corresponden (200 para los tres roles):
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_MEDICO_1" \
+  -d '{"consulta": "sesion"}'
+```
+
+La agenda del médico para una fecha (200):
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_MEDICO_1" \
+  -d '{"consulta": "agenda", "fecha": "'"$FECHA"'"}'
+```
+
+Las citas del día de todos los médicos (200) y la lista de espera (200), con el
+token de recepción:
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_RECEPCION" \
+  -d '{"consulta": "citas", "fecha": "'"$FECHA"'"}'
+
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_RECEPCION" \
+  -d '{"consulta": "lista_espera"}'
+```
+
+La lista de personas, con el token de administrador (200). La lista de pacientes
+puede ser larga:
+
+```bash
+curl -s -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_ADMIN" \
+  -d '{"consulta": "personas"}' | head -c 1500; echo
+```
+
+Los rechazos:
+
+| Petición | Resultado |
+|---|:-:|
+| Sin token, o con un token desactivado | 401 |
+| Consulta inexistente, como `pacientes` | 400 |
+| Recepción pidiendo `agenda`; médico pidiendo `citas` o `lista_espera`; recepción pidiendo `personas` | 403 |
+| Fecha `2026-02-30` o `21/10/2026` | 400 |
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/consulta \
+  -H "Content-Type: application/json" \
+  -H "X-SIGAC-Token: $SIGAC_TOKEN_RECEPCION" \
+  -d '{"consulta": "agenda"}'
+```
+
 ### Comprobación de consistencia
 
 Enviar dos solicitudes con el mismo DPI debe producir **un solo paciente** con
@@ -765,8 +861,10 @@ La consulta debe devolver cero filas.
 
 ## 7. Pruebas unitarias
 
-Los 57 nodos Code de los flujos tienen pruebas unitarias con Jest: el equivalente
-de JUnit, Mockito y JaCoCo. Se ejecutan sin levantar los contenedores.
+Los 57 nodos Code de WF-00 a WF-09 tienen pruebas unitarias con Jest: el
+equivalente de JUnit, Mockito y JaCoCo. Se ejecutan sin levantar los
+contenedores. Los 12 nodos Code de WF-10 todavía no tienen pruebas unitarias;
+sus casos se verificaron contra el endpoint (sección 6).
 
 ```bash
 cd pruebas
@@ -801,14 +899,14 @@ El detalle de cada nodo, sus casos de prueba y los resultados están en
 |:-:|---|
 | 1 | Credenciales en variables de entorno o en el almacén cifrado de n8n; `.env` excluido del repositorio |
 | 2 | Autenticación por token: SHA-256 del token recibido contra el hash almacenado |
-| 2b | Autorización por rol: `recepcion` registra y cancela; `medico` cierra, escribe notas y consulta historiales; `admin` administra personas |
+| 2b | Autorización por rol: `recepcion` registra y cancela, y consulta las citas del día y la lista de espera; `medico` cierra, escribe notas, consulta historiales y su agenda; `admin` administra personas y consulta su lista |
 | 2c | Identidad de la persona en el token: cada médico y cada recepcionista tiene el suyo |
 | 3 | Cifrado AES-256-GCM en reposo de DPI, teléfono, diagnóstico e indicaciones |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256 |
-| 4b | Auditoría de lectura: cada consulta del historial clínico queda registrada |
+| 4b | Auditoría de acceso: cada consulta del historial clínico y cada inicio de sesión quedan registrados |
 | 5 | Validación estricta de entradas y enmascaramiento del DPI en la salida |
 | 6 | Consultas parametrizadas en todos los nodos Postgres que reciben valores |
-| 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08 y WF-09 no guardan ejecuciones exitosas ni manuales |
+| 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08, WF-09 y WF-10 no guardan ejecuciones exitosas ni manuales |
 
 Decisiones de arquitectura con impacto en seguridad:
 
@@ -836,7 +934,7 @@ Comprobación del verificador de la bitácora en cualquier momento:
 
 ### Parametrización de las consultas
 
-Los treinta y tres nodos Postgres que reciben valores usan **Query Parameters**
+Los treinta y siete nodos Postgres que reciben valores usan **Query Parameters**
 con marcadores `$1`, `$2` en lugar de interpolar las expresiones dentro de la
 cadena SQL. La consulta y los datos viajan por caminos distintos, de modo que el
 motor nunca interpreta un dato como instrucción.
@@ -876,7 +974,8 @@ ProyectoSIGAC/
 │   ├── WF-06_reporte.json            reporte semanal en PDF
 │   ├── WF-07_nota_clinica.json       registro de nota clinica
 │   ├── WF-08_historial_clinico.json  consulta de historial clinico
-│   └── WF-09_administracion.json     administracion de personas
+│   ├── WF-09_administracion.json     administracion de personas
+│   └── WF-10_consultas.json          consultas para la aplicacion web
 ├── scripts/
 │   ├── verificar_cadena.js    validador de la bitacora encadenada
 │   └── verificar.sh           envoltorio que lo ejecuta en el contenedor
@@ -973,13 +1072,15 @@ PostgreSQL no admite `where` dentro de un `constraint unique`, de ahí que sea u
 | WF-07 | Registro de nota clínica | 18 | Operativo |
 | WF-08 | Consulta de historial clínico | 18 | Operativo |
 | WF-09 | Administración de personas | 38 | Operativo |
+| WF-10 | Consultas para la aplicación web | 28 | Operativo |
 
 Tipos de nodo distintos utilizados: **12** (Webhook, Schedule Trigger, Error
 Trigger, If, Switch, Merge, Code, Postgres, Send Email, Respond to Webhook,
 HTTP Request, Read/Write Files), sobre un mínimo exigido de seis.
 
-Pendiente: el video de demostración y la aplicación web para recepción y médicos,
-que es la siguiente fase del proyecto. El documento técnico detalla además las
+Pendiente: el video de demostración, la aplicación web para recepción y médicos
+(WF-10 ya provee sus consultas) y las pruebas unitarias de los nodos Code de
+WF-10. El documento técnico detalla además las
 limitaciones conocidas y el trabajo futuro.
 
 ---
