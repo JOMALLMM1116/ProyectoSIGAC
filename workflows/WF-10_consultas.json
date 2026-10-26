@@ -111,8 +111,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1808,
-        208
+        4160,
+        192
       ],
       "id": "7aeb7e60-3589-4f38-8397-6833b922a0f9",
       "name": "Respuesta"
@@ -145,6 +145,106 @@
               },
               "renameOutput": true,
               "outputKey": "sesion"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "458f0e30-a328-4b57-a9ba-66f49ac968aa",
+                    "leftValue": "={{ $('Hash del token').first().json.consulta }}",
+                    "rightValue": "agenda",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "agenda"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3151378e-5ef3-4714-80f3-6260f4f15f1a",
+                    "leftValue": "={{ $('Hash del token').first().json.consulta }}",
+                    "rightValue": "citas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "citas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ece04170-48ea-4658-9dfe-6387ba22bca8",
+                    "leftValue": "={{ $('Hash del token').first().json.consulta }}",
+                    "rightValue": "lista_espera",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lista_espera"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7085cb73-ff00-4b56-add9-923a8265e1fa",
+                    "leftValue": "={{ $('Hash del token').first().json.consulta }}",
+                    "rightValue": "personas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "personas"
             }
           ]
         },
@@ -156,8 +256,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        896,
-        -96
+        784,
+        -464
       ],
       "id": "de489513-8fc8-43e6-b307-8b52b99d98eb",
       "name": "Ruta"
@@ -169,8 +269,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1104,
-        80
+        1072,
+        112
       ],
       "id": "dddfd827-7ff5-413a-9685-e07238ccb3ae",
       "name": "Rechazo 400"
@@ -186,8 +286,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1136,
-        -256
+        1152,
+        -1456
       ],
       "id": "4e20669d-f10b-49e0-acbc-536e55496c80",
       "name": "Registra inicio de sesion",
@@ -205,11 +305,408 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1376,
-        -240
+        3456,
+        -1552
       ],
       "id": "39a3fdc0-a130-4b6c-88be-bb22dce50383",
       "name": "Sesión valida"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rechazo 403 — WF-10 Consultas\n// El token es válido, pero su rol no puede hacer esta consulta.\n\nreturn [{\n  json: {\n    codigo: 403,\n    estado: 'rechazado',\n    mensaje: 'Rol sin permiso para esta consulta'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        -16
+      ],
+      "id": "c82939d5-b46b-445e-a9c7-e0c40c05a9f2",
+      "name": "Rechazo 403"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rechazo fecha — WF-10 Consultas\n// Devuelve los errores que encontró el nodo Prepara de la ruta.\n\nreturn [{\n  json: {\n    codigo: 400,\n    estado: 'rechazado',\n    mensaje: 'Datos invalidos',\n    errores: $input.first().json.errores\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -64
+      ],
+      "id": "7def3be8-f0fc-4b26-9990-905fd51a4fd9",
+      "name": "Rechazo fecha"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60dcc9a2-0f72-4e1c-bf66-819cda2dbd70",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "medico",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        -1264
+      ],
+      "id": "cadf2ac2-575d-4e55-8fcc-8a6e28602b29",
+      "name": "¿Es médico?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepara agenda — WF-10 Consultas\n// La fecha es opcional: sin fecha, hoy en hora de Guatemala.\n// Valida el formato y que la fecha exista en el calendario.\n\nconst cuerpo = $('Webhook').first().json.body || {};\nconst hoy = DateTime.now().setZone('America/Guatemala').toISODate();\n\nconst recibida = cuerpo.fecha;\nconst fecha = (recibida === undefined || recibida === null || String(recibida).trim() === '')\n  ? hoy\n  : String(recibida).trim();\n\nconst errores = [];\nconst partes = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(fecha);\n\nif (!partes) {\n  errores.push('fecha debe tener el formato AAAA-MM-DD');\n} else {\n  const anio = Number(partes[1]);\n  const mes = Number(partes[2]);\n  const dia = Number(partes[3]);\n  const d = new Date(Date.UTC(anio, mes - 1, dia));\n  if (d.getUTCFullYear() !== anio || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) {\n    errores.push('fecha no existe en el calendario');\n  }\n}\n\nreturn [{\n  json: {\n    valida: errores.length === 0,\n    fecha: errores.length === 0 ? fecha : 'invalida',\n    token_hash: $('Hash del token').first().json.token_hash,\n    errores\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        -1328
+      ],
+      "id": "0ae0b804-3007-4515-ac1e-4dc1bacbcde7",
+      "name": "Prepara agenda"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2df63cf5-2a09-41e8-88f2-85f3a6685e8c",
+              "leftValue": "={{ $json.valida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2576,
+        -1376
+      ],
+      "id": "54543522-449d-4c11-9e61-28f1b39000f2",
+      "name": "¿Agenda válida?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select c.id as id_cita,\n       to_char(c.fecha_hora at time zone 'America/Guatemala', 'HH24:MI') as hora,\n       c.estado,\n       p.nombre || ' ' || p.apellido as paciente,\n       s.tipo_consulta,\n       s.motivo,\n       exists (select 1 from nota_clinica n where n.id_cita = c.id) as tiene_nota\nfrom cita c\njoin usuario_api u\n     on u.id_medico = c.id_medico\n    and u.token_hash = $1\n    and u.activo\njoin paciente p\n     on p.id = c.id_paciente\nleft join solicitud_cita s\n     on s.id = c.id_solicitud\nwhere (c.fecha_hora at time zone 'America/Guatemala')::date = $2::date\n  and c.estado <> 'cancelada'\norder by c.fecha_hora;",
+        "options": {
+          "queryReplacement": "={{ $json.token_hash }}, {{ $json.fecha }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        3008,
+        -1392
+      ],
+      "id": "7c4fe431-4a36-4a1e-8527-70543594310c",
+      "name": "Lee agenda",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agenda lista — WF-10 Consultas\n// Junta las citas del médico en una sola respuesta.\n// Si no hubo citas, Lee agenda entrega un elemento vacío: se descarta.\n\nconst fecha = $('Prepara agenda').first().json.fecha;\n\nconst citas = $input.all()\n  .map(item => item.json)\n  .filter(c => c.id_cita !== undefined && c.id_cita !== null)\n  .map(c => ({\n    id_cita: c.id_cita,\n    hora: c.hora,\n    estado: c.estado,\n    paciente: c.paciente,\n    tipo_consulta: c.tipo_consulta,\n    motivo: c.motivo,\n    tiene_nota: c.tiene_nota\n  }));\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'consultado',\n    fecha,\n    total: citas.length,\n    citas\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3344,
+        -1376
+      ],
+      "id": "93ad6dab-1cd6-4d28-a394-dec56f87c8fc",
+      "name": "Agenda lista"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "16a1e403-ad37-4409-b08d-df14296e92f4",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "recepcion",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -1040
+      ],
+      "id": "db586390-026d-4a70-9d35-c0310bf9e29c",
+      "name": "¿Es recepción? citas"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepara citas — WF-10 Consultas\n// La fecha es opcional: sin fecha, hoy en hora de Guatemala.\n// Valida el formato y que la fecha exista en el calendario.\n\nconst cuerpo = $('Webhook').first().json.body || {};\nconst hoy = DateTime.now().setZone('America/Guatemala').toISODate();\n\nconst recibida = cuerpo.fecha;\nconst fecha = (recibida === undefined || recibida === null || String(recibida).trim() === '')\n  ? hoy\n  : String(recibida).trim();\n\nconst errores = [];\nconst partes = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(fecha);\n\nif (!partes) {\n  errores.push('fecha debe tener el formato AAAA-MM-DD');\n} else {\n  const anio = Number(partes[1]);\n  const mes = Number(partes[2]);\n  const dia = Number(partes[3]);\n  const d = new Date(Date.UTC(anio, mes - 1, dia));\n  if (d.getUTCFullYear() !== anio || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) {\n    errores.push('fecha no existe en el calendario');\n  }\n}\n\nreturn [{\n  json: {\n    valida: errores.length === 0,\n    fecha: errores.length === 0 ? fecha : 'invalida',\n    errores\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        -1120
+      ],
+      "id": "bb09cf3e-43c4-4b48-858f-f04f2a4903fd",
+      "name": "Prepara citas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "86490c99-58ac-4923-9e02-8f6c15593358",
+              "leftValue": "={{ $json.valida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2544,
+        -1168
+      ],
+      "id": "bbdd88a6-ebb1-4af0-9939-f84ab51ca976",
+      "name": "¿Citas válida?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select c.id as id_cita,\n       to_char(c.fecha_hora at time zone 'America/Guatemala', 'HH24:MI') as hora,\n       c.estado,\n       c.notificada,\n       p.nombre || ' ' || p.apellido as paciente,\n       m.nombre as medico,\n       m.especialidad,\n       s.tipo_consulta\nfrom cita c\njoin paciente p\n     on p.id = c.id_paciente\njoin medico m\n     on m.id = c.id_medico\nleft join solicitud_cita s\n     on s.id = c.id_solicitud\nwhere (c.fecha_hora at time zone 'America/Guatemala')::date = $1::date\norder by c.fecha_hora, m.nombre;",
+        "options": {
+          "queryReplacement": "={{ $json.fecha }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        3008,
+        -1184
+      ],
+      "id": "eedbdcb7-5552-490a-9554-aa0bece9c1e7",
+      "name": "Lee citas",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Citas listas — WF-10 Consultas\n// Junta las citas del día de todos los médicos en una sola respuesta.\n// Si no hubo citas, Lee citas entrega un elemento vacío: se descarta.\n\nconst fecha = $('Prepara citas').first().json.fecha;\n\nconst citas = $input.all()\n  .map(item => item.json)\n  .filter(c => c.id_cita !== undefined && c.id_cita !== null)\n  .map(c => ({\n    id_cita: c.id_cita,\n    hora: c.hora,\n    estado: c.estado,\n    notificada: c.notificada,\n    paciente: c.paciente,\n    medico: c.medico,\n    especialidad: c.especialidad,\n    tipo_consulta: c.tipo_consulta\n  }));\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'consultado',\n    fecha,\n    total: citas.length,\n    citas\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        -1184
+      ],
+      "id": "e11c53b5-45ea-4d49-be41-ec97fd82902a",
+      "name": "Citas listas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2b963a8c-407f-44cc-8474-af122a90a3cc",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "recepcion",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -848
+      ],
+      "id": "77f03dc4-cd30-4fb7-9983-f0692620f29e",
+      "name": "¿Es recepción? espera"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select le.id as id_espera,\n       le.id_solicitud,\n       le.prioridad,\n       le.notificada,\n       to_char(le.creado_en at time zone 'America/Guatemala', 'YYYY-MM-DD HH24:MI') as en_espera_desde,\n       to_char(s.fecha_preferida, 'YYYY-MM-DD') as fecha_preferida,\n       s.franja_preferida,\n       s.especialidad_solicitada,\n       s.tipo_consulta,\n       p.nombre || ' ' || p.apellido as paciente\nfrom lista_espera le\njoin solicitud_cita s\n     on s.id = le.id_solicitud\njoin paciente p\n     on p.id = s.id_paciente\nwhere le.atendida = false\n  and s.estado = 'en_espera'\norder by s.fecha_preferida, le.prioridad, le.creado_en;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1760,
+        -912
+      ],
+      "id": "7ee8b3f6-c238-4cd7-9aa9-d65229a9d87a",
+      "name": "Lee lista de espera",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Espera lista — WF-10 Consultas\n// Junta las solicitudes en espera en una sola respuesta, en el orden\n// en que WF-04 repartiría los cupos liberados.\n// Si no hay nadie esperando, Lee lista de espera entrega un elemento vacío.\n\nconst espera = $input.all()\n  .map(item => item.json)\n  .filter(e => e.id_espera !== undefined && e.id_espera !== null)\n  .map(e => ({\n    id_espera: e.id_espera,\n    id_solicitud: e.id_solicitud,\n    paciente: e.paciente,\n    fecha_preferida: e.fecha_preferida,\n    franja_preferida: e.franja_preferida,\n    especialidad_solicitada: e.especialidad_solicitada,\n    tipo_consulta: e.tipo_consulta,\n    prioridad: e.prioridad,\n    en_espera_desde: e.en_espera_desde,\n    notificada: e.notificada\n  }));\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'consultado',\n    total: espera.length,\n    espera\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        -960
+      ],
+      "id": "fa8c160e-7d9a-4b39-b788-757b4c652305",
+      "name": "Espera lista"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "07bf322c-3df4-4952-adcd-c44a2f585e58",
+              "leftValue": "={{ $json.rol }}",
+              "rightValue": "admin",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -624
+      ],
+      "id": "bcc37758-86aa-43ff-8d21-0de5b6c42dd3",
+      "name": "¿Es admin?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select 'medico' as tipo,\n       m.id,\n       m.nombre,\n       m.especialidad,\n       m.colegiado,\n       case when m.baja_en is not null then 'baja'\n            when m.activo then 'activo'\n            else 'inactivo' end as estado\nfrom medico m\n\nunion all\n\nselect 'recepcionista',\n       r.id,\n       r.nombre,\n       null::text,\n       null::text,\n       case when r.baja_en is not null then 'baja'\n            when r.activo then 'activo'\n            else 'inactivo' end\nfrom recepcionista r\n\nunion all\n\nselect 'paciente',\n       p.id,\n       p.nombre || ' ' || p.apellido,\n       null::text,\n       null::text,\n       case when p.baja_en is not null then 'baja'\n            when p.activo then 'activo'\n            else 'inactivo' end\nfrom paciente p\n\norder by tipo, id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1744,
+        -672
+      ],
+      "id": "2b18822a-aa17-4ce4-a5d6-941eab416ff5",
+      "name": "Lee personas",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SboKk4ZMcKtMLxBt",
+          "name": "SIGAC PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Personas listas — WF-10 Consultas\n// Separa médicos, recepcionistas y pacientes en tres listas.\n// Ningún dato cifrado ni de contacto: solo lo que el administrador\n// necesita para elegir a quién desactivar, dar de baja o reactivar.\n\nconst filas = $input.all()\n  .map(item => item.json)\n  .filter(f => f.id !== undefined && f.id !== null);\n\nconst medicos = filas\n  .filter(f => f.tipo === 'medico')\n  .map(f => ({\n    id: f.id,\n    nombre: f.nombre,\n    especialidad: f.especialidad,\n    colegiado: f.colegiado,\n    estado: f.estado\n  }));\n\nconst recepcionistas = filas\n  .filter(f => f.tipo === 'recepcionista')\n  .map(f => ({ id: f.id, nombre: f.nombre, estado: f.estado }));\n\nconst pacientes = filas\n  .filter(f => f.tipo === 'paciente')\n  .map(f => ({ id: f.id, nombre: f.nombre, estado: f.estado }));\n\nreturn [{\n  json: {\n    codigo: 200,\n    estado: 'consultado',\n    medicos,\n    recepcionistas,\n    pacientes\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        -736
+      ],
+      "id": "77e98107-be38-47c8-8c80-7cd3557122c0",
+      "name": "Personas listas"
     }
   ],
   "pinData": {},
@@ -287,6 +784,34 @@
         ],
         [
           {
+            "node": "¿Es médico?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es recepción? citas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es recepción? espera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es admin?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Rechazo 400",
             "type": "main",
             "index": 0
@@ -326,6 +851,246 @@
           }
         ]
       ]
+    },
+    "Rechazo 403": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechazo fecha": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es médico?": {
+      "main": [
+        [
+          {
+            "node": "Prepara agenda",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara agenda": {
+      "main": [
+        [
+          {
+            "node": "¿Agenda válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Agenda válida?": {
+      "main": [
+        [
+          {
+            "node": "Lee agenda",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo fecha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee agenda": {
+      "main": [
+        [
+          {
+            "node": "Agenda lista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agenda lista": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es recepción? citas": {
+      "main": [
+        [
+          {
+            "node": "Prepara citas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara citas": {
+      "main": [
+        [
+          {
+            "node": "¿Citas válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Citas válida?": {
+      "main": [
+        [
+          {
+            "node": "Lee citas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo fecha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee citas": {
+      "main": [
+        [
+          {
+            "node": "Citas listas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Citas listas": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es recepción? espera": {
+      "main": [
+        [
+          {
+            "node": "Lee lista de espera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee lista de espera": {
+      "main": [
+        [
+          {
+            "node": "Espera lista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera lista": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es admin?": {
+      "main": [
+        [
+          {
+            "node": "Lee personas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazo 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee personas": {
+      "main": [
+        [
+          {
+            "node": "Personas listas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personas listas": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -340,7 +1105,7 @@
     "saveManualExecutions": false,
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "bb1bfb0d-9fb5-452c-abaf-bb3ed39cae85",
+  "versionId": "ebc3762b-f20b-4ffd-98a2-f0e3a5fa9bc7",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"
