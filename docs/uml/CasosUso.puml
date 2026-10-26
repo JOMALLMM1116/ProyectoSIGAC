@@ -14,19 +14,24 @@ rectangle "SIGAC — Sistema de Gestión de Atención Clínica" {
   usecase "Autenticar con token" as UC_Auth
   usecase "Registrar en la bitácora" as UC_Bitacora
   usecase "Generar token" as UC_Token
+  usecase "Iniciar sesión" as UC_Sesion
 
   ' --- Recepción ---
   usecase "Registrar solicitud de cita" as UC_Solicitud
   usecase "Indicar preferencias\n(franja, hora, especialidad, médico)" as UC_Pref
   usecase "Cancelar cita" as UC_Cancelar
   usecase "Reasignar cupo liberado" as UC_Reasignar
+  usecase "Consultar citas del día" as UC_Citas
+  usecase "Consultar lista de espera" as UC_ListaEspera
 
   ' --- Médico ---
+  usecase "Consultar agenda del día" as UC_Agenda
   usecase "Cerrar cita" as UC_Cerrar
   usecase "Registrar nota clínica" as UC_Nota
   usecase "Consultar historial clínico" as UC_Historial
 
   ' --- Administración ---
+  usecase "Consultar personas" as UC_Personas
   usecase "Agregar médico o recepcionista" as UC_Agregar
   usecase "Desactivar persona" as UC_Desactivar
   usecase "Dar de baja a una persona" as UC_Baja
@@ -43,13 +48,20 @@ rectangle "SIGAC — Sistema de Gestión de Atención Clínica" {
 }
 
 ' --- Actores y casos de uso ---
+Recepcion --> UC_Sesion
 Recepcion --> UC_Solicitud
 Recepcion --> UC_Cancelar
+Recepcion --> UC_Citas
+Recepcion --> UC_ListaEspera
 
+Medico --> UC_Sesion
+Medico --> UC_Agenda
 Medico --> UC_Cerrar
 Medico --> UC_Nota
 Medico --> UC_Historial
 
+Admin --> UC_Sesion
+Admin --> UC_Personas
 Admin --> UC_Agregar
 Admin --> UC_Desactivar
 Admin --> UC_Baja
@@ -64,16 +76,22 @@ UC_Reporte --> Admin
 UC_Error --> Admin
 
 ' --- Include: obligatorios ---
+UC_Sesion ..> UC_Auth : <<include>>
 UC_Solicitud ..> UC_Auth : <<include>>
 UC_Cancelar ..> UC_Auth : <<include>>
+UC_Citas ..> UC_Auth : <<include>>
+UC_ListaEspera ..> UC_Auth : <<include>>
+UC_Agenda ..> UC_Auth : <<include>>
 UC_Cerrar ..> UC_Auth : <<include>>
 UC_Nota ..> UC_Auth : <<include>>
 UC_Historial ..> UC_Auth : <<include>>
+UC_Personas ..> UC_Auth : <<include>>
 UC_Agregar ..> UC_Auth : <<include>>
 UC_Desactivar ..> UC_Auth : <<include>>
 UC_Baja ..> UC_Auth : <<include>>
 UC_Reactivar ..> UC_Auth : <<include>>
 
+UC_Sesion ..> UC_Bitacora : <<include>>
 UC_Solicitud ..> UC_Bitacora : <<include>>
 UC_Nota ..> UC_Bitacora : <<include>>
 UC_Historial ..> UC_Bitacora : <<include>>
@@ -88,6 +106,17 @@ UC_Espera ..> UC_Asignar : <<extend>>
 UC_ReasignarMed ..> UC_Desactivar : <<extend>>
 UC_ReasignarMed ..> UC_Baja : <<extend>>
 UC_Token ..> UC_Reactivar : <<extend>>
+
+note right of UC_Sesion
+  La usa la aplicación web para saber
+  a qué pantallas enviar a cada persona.
+  Cada inicio queda en la bitácora.
+end note
+
+note right of UC_Agenda
+  Solo las citas del médico que llama:
+  el médico sale de su token.
+end note
 
 note right of UC_Historial
   Cada consulta queda en la

@@ -17,7 +17,7 @@ node "Equipo anfitrión — Windows con WSL 2" {
 
   node "Docker — red interna del proyecto" as Red {
 
-    component "sigac-n8n\nn8n 2.33.6\nWF-00 a WF-09" as N8N
+    component "sigac-n8n\nn8n 2.33.6\nWF-00 a WF-10" as N8N
     component "sigac-postgres\nPostgreSQL 16\n12 tablas" as PG
     component "sigac-mailhog\nMailHog" as MH
     component "sigac-gotenberg\nGotenberg 8" as GB
@@ -31,9 +31,9 @@ node "Equipo anfitrión — Windows con WSL 2" {
 
 cloud "Gmail\nsmtp.gmail.com" as GMAIL
 
-Recepcion --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar
-Medico --> P5678 : HTTP POST\n/webhook/cerrar\n/webhook/nota\n/webhook/historial
-Admin --> P5678 : HTTP POST\n/webhook/admin
+Recepcion --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar\n/webhook/consulta
+Medico --> P5678 : HTTP POST\n/webhook/cerrar\n/webhook/nota\n/webhook/historial\n/webhook/consulta
+Admin --> P5678 : HTTP POST\n/webhook/admin\n/webhook/consulta
 Admin --> P8025 : consulta la bandeja
 Admin --> P5433 : pgAdmin
 
