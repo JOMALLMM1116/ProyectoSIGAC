@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGAC · Administración</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <link rel="stylesheet" href="/css/pantallas.css">
+  <script src="/js/tema.js"></script>
+</head>
+<body>
+
+  <header class="encabezado">
+    <span class="marca">SIGAC</span>
+    <div class="persona">
+      <div class="selector-tema" role="group" aria-label="Modo de color">
+        <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+      </div>
+      <div class="quien">
+        <strong id="nombre-persona"></strong>
+        <span class="detalle">Administración</span>
+      </div>
+      <button id="boton-salir" type="button" class="boton boton-secundario">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenido">
+
+    <h1>Personas</h1>
+
+    <div class="pestanas" role="tablist" aria-label="Tipos de persona">
+      <button type="button" class="pestana" role="tab" data-seccion="medicos" aria-selected="true">Médicos</button>
+      <button type="button" class="pestana" role="tab" data-seccion="recepcionistas" aria-selected="false">Recepcionistas</button>
+      <button type="button" class="pestana" role="tab" data-seccion="pacientes" aria-selected="false">Pacientes</button>
+    </div>
+
+    <div id="mensaje" class="mensaje oculto" role="status"></div>
+
+    <!-- Token recién generado: se muestra una sola vez -->
+    <section id="caja-token" class="tarjeta caja-token oculto" aria-live="polite">
+      <h2>Token de acceso de <span id="token-para"></span></h2>
+      <p>Se muestra <strong>una sola vez</strong>. Entrégalo a la persona y no lo guardes en ningún otro lugar: el sistema no puede volver a mostrarlo.</p>
+      <code id="token-valor" class="token-valor"></code>
+      <div class="grupo-botones">
+        <button id="boton-copiar-token" type="button" class="boton">Copiar</button>
+        <button id="boton-ocultar-token" type="button" class="boton boton-secundario-claro">Ya lo entregué</button>
+      </div>
+    </section>
+
+    <!-- Médicos -->
+    <section id="seccion-medicos" class="tarjeta" role="tabpanel">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>N.º</th>
+            <th>Nombre</th>
+            <th>Especialidad</th>
+            <th>Colegiado</th>
+            <th>Estado</th>
+            <th><span class="solo-lector">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody id="filas-medicos"></tbody>
+      </table>
+
+      <h2 class="separado">Agregar médico</h2>
+      <form id="formulario-medico" novalidate>
+        <div class="rejilla">
+          <div class="campo">
+            <label for="medico-nombre">Nombre completo</label>
+            <input id="medico-nombre" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="medico-colegiado">Número de colegiado</label>
+            <input id="medico-colegiado" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="medico-especialidad">Especialidad</label>
+            <input id="medico-especialidad" list="lista-especialidades" autocomplete="off" required>
+            <datalist id="lista-especialidades"></datalist>
+            <span class="ayuda">Elige una de la lista o escribe una nueva</span>
+          </div>
+        </div>
+        <button type="submit" class="boton">Agregar médico</button>
+      </form>
+    </section>
+
+    <!-- Recepcionistas -->
+    <section id="seccion-recepcionistas" class="tarjeta oculto" role="tabpanel">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>N.º</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th><span class="solo-lector">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody id="filas-recepcionistas"></tbody>
+      </table>
+
+      <h2 class="separado">Agregar recepcionista</h2>
+      <form id="formulario-recepcionista" novalidate>
+        <div class="campo">
+          <label for="recepcionista-nombre">Nombre completo</label>
+          <input id="recepcionista-nombre" autocomplete="off" required>
+        </div>
+        <button type="submit" class="boton">Agregar recepcionista</button>
+      </form>
+    </section>
+
+    <!-- Pacientes -->
+    <section id="seccion-pacientes" class="tarjeta oculto" role="tabpanel">
+      <div class="barra-herramientas">
+        <p class="texto-suave">Los pacientes se registran con su primera solicitud de cita, desde recepción.</p>
+        <div class="controles">
+          <label for="buscar-paciente" class="texto-suave">Buscar</label>
+          <input id="buscar-paciente" type="search" autocomplete="off" placeholder="Nombre o número">
+        </div>
+      </div>
+      <p id="resumen-pacientes" class="texto-suave"></p>
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>N.º</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th><span class="solo-lector">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody id="filas-pacientes"></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script src="/js/sesion.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/pagina.js"></script>
+  <script src="/js/admin/personas.js"></script>
+</body>
+</html>

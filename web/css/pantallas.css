@@ -1,0 +1,274 @@
+/* pantallas.css — SIGAC
+   Distribución de las pantallas de trabajo: encabezado con la persona,
+   barra de herramientas, tabla con panel lateral, pestañas y formularios.
+   Todos los colores vienen de las variables de estilos.css. */
+
+/* --- Encabezado: quién está conectado --- */
+
+.encabezado .quien {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.encabezado .detalle {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.encabezado .boton-secundario {
+  color: var(--encabezado-texto);
+  padding: 7px 14px;
+}
+
+/* --- Barra de herramientas sobre la tabla --- */
+
+.barra-herramientas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.barra-herramientas h1 {
+  margin: 0;
+}
+
+.controles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controles input[type="date"],
+.controles select {
+  padding: 9px 12px;
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+}
+
+/* --- Tabla con panel lateral --- */
+
+.diseno-con-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.diseno-con-panel:has(.panel-lateral:not(.oculto)) {
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+}
+
+.diseno-con-panel > .tarjeta {
+  margin-bottom: 0;
+  overflow-x: auto;
+}
+
+.panel-lateral {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border-top: 4px solid var(--acento);
+}
+
+.panel-lateral h3 {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--borde);
+}
+
+.panel-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-cabecera h2 {
+  margin-bottom: 2px;
+}
+
+/* --- Botones extra --- */
+
+.boton-pequeno {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+}
+
+.boton-aviso {
+  background: var(--ausente-texto);
+  color: var(--superficie);
+}
+
+.boton-aviso:hover {
+  background: var(--ausente-texto);
+  filter: brightness(1.1);
+}
+
+.boton-peligro {
+  background: var(--cancelada-texto);
+  color: var(--superficie);
+}
+
+.boton-peligro:hover {
+  background: var(--cancelada-texto);
+  filter: brightness(1.1);
+}
+
+.grupo-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- Historial clínico --- */
+
+.lista-historial {
+  margin-top: 12px;
+}
+
+.nota-historial {
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--acento);
+  background: var(--superficie-alterna);
+  border-radius: 0 8px 8px 0;
+}
+
+.nota-historial p {
+  margin: 0 0 4px;
+}
+
+.nota-diagnostico {
+  font-weight: 700;
+}
+
+/* --- Estado vacío --- */
+
+.estado-vacio {
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--texto-suave);
+  margin: 0 auto;
+}
+
+/* --- Pestañas (recepción y administración) --- */
+
+.pestanas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--borde);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pestana {
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--texto-suave);
+  cursor: pointer;
+}
+
+.pestana[aria-selected="true"] {
+  color: var(--acento);
+  border-bottom-color: var(--acento);
+}
+
+.pestana:hover {
+  color: var(--texto);
+}
+
+/* --- Formularios en rejilla --- */
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.rejilla .ancho-completo {
+  grid-column: 1 / -1;
+}
+
+/* --- Accesibilidad: texto solo para lectores de pantalla --- */
+
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* --- Pantallas angostas --- */
+
+@media (max-width: 900px) {
+  .diseno-con-panel:has(.panel-lateral:not(.oculto)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel-lateral {
+    position: static;
+    max-height: none;
+  }
+
+  .rejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Administración: token recién generado --- */
+
+.caja-token {
+  border: 2px solid var(--ausente-texto);
+  background: var(--ausente-fondo);
+  color: var(--ausente-texto);
+}
+
+.caja-token h2 {
+  color: var(--ausente-texto);
+}
+
+.token-valor {
+  display: block;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 0.95rem;
+  word-break: break-all;
+  user-select: all;
+}
+
+.boton-secundario-claro {
+  background: transparent;
+  color: var(--ausente-texto);
+  border: 1px solid var(--ausente-texto);
+}
+
+.boton-secundario-claro:hover {
+  background: rgba(127, 127, 127, 0.14);
+}
+
+/* --- Separación entre la tabla y el formulario de alta --- */
+
+.separado {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--borde);
+}

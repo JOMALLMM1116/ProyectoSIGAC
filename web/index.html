@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGAC · Iniciar sesión</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <script src="/js/tema.js"></script>
+</head>
+<body>
+  <main class="pagina-inicio">
+
+    <div class="selector-tema" role="group" aria-label="Modo de color">
+      <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
+      <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
+      <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+    </div>
+
+    <section class="caja-inicio">
+      <h1 class="marca">SIGAC</h1>
+      <p class="subtitulo">Gestión de atención clínica</p>
+
+      <div id="mensaje" class="mensaje mensaje-error oculto" role="alert"></div>
+
+      <form id="formulario-inicio" novalidate>
+        <div class="campo">
+          <label for="token">Token de acceso</label>
+          <input id="token" name="token" type="password"
+                 autocomplete="off" spellcheck="false" required>
+          <span class="ayuda">Te lo entrega el administrador de la clínica. No lo compartas.</span>
+        </div>
+
+        <button id="boton-entrar" type="submit" class="boton boton-ancho">Entrar</button>
+      </form>
+
+      <p class="pie">Uso exclusivo del personal de la clínica.</p>
+    </section>
+
+  </main>
+
+  <script src="/js/sesion.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>
+

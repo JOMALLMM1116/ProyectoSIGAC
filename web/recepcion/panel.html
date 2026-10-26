@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGAC · Recepción</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <link rel="stylesheet" href="/css/pantallas.css">
+  <script src="/js/tema.js"></script>
+</head>
+<body>
+
+  <header class="encabezado">
+    <span class="marca">SIGAC</span>
+    <div class="persona">
+      <div class="selector-tema" role="group" aria-label="Modo de color">
+        <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+      </div>
+      <div class="quien">
+        <strong id="nombre-persona"></strong>
+        <span class="detalle">Recepción</span>
+      </div>
+      <button id="boton-salir" type="button" class="boton boton-secundario">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenido">
+
+    <div class="pestanas" role="tablist" aria-label="Secciones de recepción">
+      <button type="button" class="pestana" role="tab" data-seccion="citas" aria-selected="true">Citas del día</button>
+      <button type="button" class="pestana" role="tab" data-seccion="nueva" aria-selected="false">Nueva solicitud</button>
+      <button type="button" class="pestana" role="tab" data-seccion="espera" aria-selected="false">Lista de espera</button>
+    </div>
+
+    <div id="mensaje" class="mensaje oculto" role="status"></div>
+
+    <!-- Citas del día -->
+    <section id="seccion-citas" class="tarjeta" role="tabpanel">
+      <div class="barra-herramientas">
+        <h1>Citas del día</h1>
+        <div class="controles">
+          <label for="fecha" class="texto-suave">Fecha</label>
+          <input id="fecha" type="date">
+          <button id="boton-hoy" type="button" class="boton">Hoy</button>
+        </div>
+      </div>
+      <p id="resumen-citas" class="texto-suave"></p>
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Paciente</th>
+            <th>Médico</th>
+            <th>Especialidad</th>
+            <th>Estado</th>
+            <th>Aviso</th>
+            <th><span class="solo-lector">Acción</span></th>
+          </tr>
+        </thead>
+        <tbody id="filas-citas"></tbody>
+      </table>
+      <p id="sin-citas" class="estado-vacio oculto">No hay citas en esta fecha.</p>
+    </section>
+
+    <!-- Nueva solicitud -->
+    <section id="seccion-nueva" class="tarjeta oculto" role="tabpanel">
+      <h1>Nueva solicitud de cita</h1>
+      <p class="texto-suave">El sistema asigna médico y horario en los próximos minutos. Las preferencias son opcionales.</p>
+
+      <form id="formulario-solicitud" novalidate>
+        <h2>Paciente</h2>
+        <div class="rejilla">
+          <div class="campo">
+            <label for="dpi">DPI</label>
+            <input id="dpi" inputmode="numeric" maxlength="13" autocomplete="off" required>
+            <span class="ayuda">13 dígitos, sin espacios</span>
+          </div>
+          <div class="campo">
+            <label for="telefono">Teléfono</label>
+            <input id="telefono" inputmode="numeric" maxlength="8" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="nombre">Nombres</label>
+            <input id="nombre" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="apellido">Apellidos</label>
+            <input id="apellido" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="correo">Correo</label>
+            <input id="correo" type="email" autocomplete="off" required>
+          </div>
+          <div class="campo">
+            <label for="fecha-nacimiento">Fecha de nacimiento</label>
+            <input id="fecha-nacimiento" type="date" required>
+          </div>
+        </div>
+
+        <h2>Consulta</h2>
+        <div class="rejilla">
+          <div class="campo">
+            <label for="tipo-consulta">Tipo de consulta</label>
+            <select id="tipo-consulta" required>
+              <option value="general">General</option>
+              <option value="control">Control</option>
+              <option value="urgencia">Urgencia</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="fecha-preferida">Fecha deseada</label>
+            <input id="fecha-preferida" type="date" required>
+          </div>
+          <div class="campo ancho-completo">
+            <label for="motivo">Motivo</label>
+            <textarea id="motivo" rows="2" maxlength="255" required></textarea>
+          </div>
+        </div>
+
+        <h2>Preferencias <span class="texto-suave">(opcionales)</span></h2>
+        <div class="rejilla">
+          <div class="campo">
+            <label for="franja">Franja</label>
+            <select id="franja">
+              <option value="">Sin preferencia</option>
+              <option value="manana">Mañana (08:00 a 12:00)</option>
+              <option value="tarde">Tarde (13:30 a 17:00)</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="hora">Hora</label>
+            <input id="hora" type="time" step="1800">
+            <span class="ayuda">Dentro de la franja elegida</span>
+          </div>
+          <div class="campo">
+            <label for="especialidad">Especialidad</label>
+            <select id="especialidad">
+              <option value="">Sin preferencia (Medicina General)</option>
+              <option value="Medicina General">Medicina General</option>
+              <option value="Pediatria">Pediatría</option>
+              <option value="Medicina Interna">Medicina Interna</option>
+              <option value="Ginecologia">Ginecología</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="id-medico">Número de médico</label>
+            <input id="id-medico" inputmode="numeric" autocomplete="off">
+            <span class="ayuda">Solo si el paciente pide un médico concreto</span>
+          </div>
+        </div>
+
+        <button type="submit" class="boton">Registrar solicitud</button>
+      </form>
+    </section>
+
+    <!-- Lista de espera -->
+    <section id="seccion-espera" class="tarjeta oculto" role="tabpanel">
+      <div class="barra-herramientas">
+        <h1>Lista de espera</h1>
+        <button id="boton-actualizar-espera" type="button" class="boton">Actualizar</button>
+      </div>
+      <p class="texto-suave">Por fecha deseada y, dentro de cada fecha, en el orden en que recibirían un cupo liberado.</p>
+      <p id="resumen-espera" class="texto-suave"></p>
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Fecha deseada</th>
+            <th>Paciente</th>
+            <th>Consulta</th>
+            <th>Preferencia</th>
+            <th>Prioridad</th>
+            <th>En espera desde</th>
+          </tr>
+        </thead>
+        <tbody id="filas-espera"></tbody>
+      </table>
+      <p id="sin-espera" class="estado-vacio oculto">Nadie está esperando un cupo.</p>
+    </section>
+
+  </main>
+
+  <script src="/js/sesion.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/pagina.js"></script>
+  <script src="/js/recepcion/panel.js"></script>
+</body>
+</html>
+

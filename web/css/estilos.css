@@ -1,0 +1,526 @@
+/* estilos.css — SIGAC
+   Tres modos: claro, intermedio y oscuro, elegidos en data-tema.
+   Paleta base de los mockups: #122620, #FAF6EC y #1F7A5C.
+   Ningún tema usa blanco ni negro puros: el contraste extremo
+   cansa la vista en jornadas largas. */
+
+/* --- Tipografía: Atkinson Hyperlegible, servida desde /fonts/ ---
+   Si los archivos no están, se usa la fuente del sistema. */
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson-hyperlegible-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson-hyperlegible-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --- Modo claro (también el predeterminado) --- */
+
+:root,
+:root[data-tema="claro"] {
+  --fondo: #FAF6EC;
+  --superficie: #FFFDF7;
+  --superficie-alterna: #F3EEE1;
+  --encabezado: #122620;
+  --encabezado-texto: #F3EFE4;
+  --texto: #1E2B26;
+  --texto-suave: #5A6962;
+  --borde: #DCD5C4;
+  --acento: #1F7A5C;
+  --acento-fuerte: #165C45;
+  --acento-texto: #FFFDF7;
+  --acento-suave: #E2EFE8;
+  --foco: #1F7A5C;
+  --sombra: 0 1px 2px rgba(18, 38, 32, 0.06), 0 4px 14px rgba(18, 38, 32, 0.06);
+
+  --confirmada-fondo: #DDEFE5;
+  --confirmada-texto: #17614A;
+  --atendida-fondo: #DCEAF1;
+  --atendida-texto: #22566F;
+  --ausente-fondo: #F6EAD0;
+  --ausente-texto: #7D5A12;
+  --cancelada-fondo: #F5E0DC;
+  --cancelada-texto: #8E3427;
+  --inactivo-fondo: #ECE8DE;
+  --inactivo-texto: #5E655F;
+
+  color-scheme: light;
+}
+
+/* --- Modo intermedio: luminosidad media, ni deslumbra ni encierra --- */
+
+:root[data-tema="intermedio"] {
+  --fondo: #2D3B36;
+  --superficie: #364641;
+  --superficie-alterna: #3E4F49;
+  --encabezado: #22302B;
+  --encabezado-texto: #E7EBE5;
+  --texto: #E9ECE6;
+  --texto-suave: #B4C0B9;
+  --borde: #4D5E57;
+  --acento: #63C29A;
+  --acento-fuerte: #7FD0AD;
+  --acento-texto: #12211B;
+  --acento-suave: #3F5A4F;
+  --foco: #8BD6B5;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.16);
+
+  --confirmada-fondo: #355848;
+  --confirmada-texto: #B5E6CD;
+  --atendida-fondo: #34505F;
+  --atendida-texto: #B9DCEC;
+  --ausente-fondo: #5A4D2E;
+  --ausente-texto: #F0D79C;
+  --cancelada-fondo: #5D3E39;
+  --cancelada-texto: #F2C1B8;
+  --inactivo-fondo: #45524D;
+  --inactivo-texto: #C3CCC6;
+
+  color-scheme: dark;
+}
+
+/* --- Modo oscuro: verde casi negro, texto blanco roto --- */
+
+:root[data-tema="oscuro"] {
+  --fondo: #0F1A16;
+  --superficie: #17241F;
+  --superficie-alterna: #1D2D27;
+  --encabezado: #0B1411;
+  --encabezado-texto: #D9E2DC;
+  --texto: #DCE4DE;
+  --texto-suave: #92A39A;
+  --borde: #2A3B34;
+  --acento: #52B788;
+  --acento-fuerte: #6CC79C;
+  --acento-texto: #0D1813;
+  --acento-suave: #1F3A2F;
+  --foco: #6CC79C;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.3);
+
+  --confirmada-fondo: #1E3A2E;
+  --confirmada-texto: #9AD8B8;
+  --atendida-fondo: #1D3340;
+  --atendida-texto: #9CC9DE;
+  --ausente-fondo: #3A3220;
+  --ausente-texto: #E2C482;
+  --cancelada-fondo: #3D2522;
+  --cancelada-texto: #E3A79D;
+  --inactivo-fondo: #24302C;
+  --inactivo-texto: #A4B0AA;
+
+  color-scheme: dark;
+}
+
+/* Sin preferencia guardada, se respeta la del sistema operativo */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema]) {
+    --fondo: #0F1A16;
+    --superficie: #17241F;
+    --superficie-alterna: #1D2D27;
+    --encabezado: #0B1411;
+    --encabezado-texto: #D9E2DC;
+    --texto: #DCE4DE;
+    --texto-suave: #92A39A;
+    --borde: #2A3B34;
+    --acento: #52B788;
+    --acento-fuerte: #6CC79C;
+    --acento-texto: #0D1813;
+    --acento-suave: #1F3A2F;
+    --foco: #6CC79C;
+    color-scheme: dark;
+  }
+}
+
+/* --- Base --- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--texto);
+  background: var(--fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--texto);
+  line-height: 1.25;
+  margin: 0 0 12px;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin: 0 0 12px;
+  max-width: 70ch;
+}
+
+a {
+  color: var(--acento);
+}
+
+.texto-suave {
+  color: var(--texto-suave);
+}
+
+.oculto {
+  display: none !important;
+}
+
+/* Horas, fechas y números alineados en columna */
+.numero,
+.hora,
+.tabla td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco visible para quien usa el teclado */
+:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* --- Encabezado --- */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--encabezado);
+  color: var(--encabezado-texto);
+}
+
+.encabezado .marca {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.encabezado .persona {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.95rem;
+}
+
+/* --- Selector de modo --- */
+
+.selector-tema {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.selector-tema button {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.selector-tema button[aria-pressed="true"] {
+  background: var(--acento);
+  color: var(--acento-texto);
+  font-weight: 700;
+}
+
+/* --- Contenido --- */
+
+.contenido {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  box-shadow: var(--sombra);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+/* --- Formularios --- */
+
+.campo {
+  margin-bottom: 16px;
+}
+
+.campo label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  width: 100%;
+  padding: 11px 13px;
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie-alterna);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+}
+
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus {
+  outline: 3px solid var(--foco);
+  outline-offset: 1px;
+  border-color: var(--acento);
+}
+
+.campo .ayuda {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+/* --- Botones --- */
+
+.boton {
+  display: inline-block;
+  padding: 11px 20px;
+  font: inherit;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--acento);
+  color: var(--acento-texto);
+}
+
+.boton:hover {
+  background: var(--acento-fuerte);
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.boton-secundario {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+}
+
+.boton-secundario:hover {
+  background: rgba(127, 127, 127, 0.14);
+}
+
+.boton-ancho {
+  width: 100%;
+}
+
+/* --- Mensajes --- */
+
+.mensaje {
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.mensaje-error {
+  background: var(--cancelada-fondo);
+  color: var(--cancelada-texto);
+}
+
+.mensaje-aviso {
+  background: var(--ausente-fondo);
+  color: var(--ausente-texto);
+}
+
+.mensaje-exito {
+  background: var(--confirmada-fondo);
+  color: var(--confirmada-texto);
+}
+
+/* --- Tablas --- */
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla th {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.tabla tbody tr:hover {
+  background: var(--acento-suave);
+}
+
+.tabla .hora {
+  font-size: 1.15rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --- Estados: el mismo significado en los tres modos --- */
+
+.estado {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.estado-confirmada,
+.estado-activo {
+  background: var(--confirmada-fondo);
+  color: var(--confirmada-texto);
+}
+
+.estado-atendida {
+  background: var(--atendida-fondo);
+  color: var(--atendida-texto);
+}
+
+.estado-ausente,
+.estado-vencida {
+  background: var(--ausente-fondo);
+  color: var(--ausente-texto);
+}
+
+.estado-cancelada {
+  background: var(--cancelada-fondo);
+  color: var(--cancelada-texto);
+}
+
+.estado-inactivo,
+.estado-baja {
+  background: var(--inactivo-fondo);
+  color: var(--inactivo-texto);
+}
+
+/* --- Pantalla de inicio de sesión --- */
+
+.pagina-inicio {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: var(--encabezado);
+}
+
+.caja-inicio {
+  width: 100%;
+  max-width: 410px;
+  background: var(--superficie);
+  color: var(--texto);
+  border-radius: 16px;
+  padding: 34px 32px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.caja-inicio .marca {
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--acento);
+  margin: 0;
+}
+
+.caja-inicio .subtitulo {
+  margin: 2px 0 26px;
+  color: var(--texto-suave);
+}
+
+.caja-inicio .pie {
+  margin: 20px 0 0;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+.pagina-inicio .selector-tema {
+  color: var(--encabezado-texto);
+}
+
+/* --- Pantallas angostas --- */
+
+@media (max-width: 640px) {
+  .encabezado {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .contenido {
+    padding: 18px 14px;
+  }
+
+  .tabla th,
+  .tabla td {
+    padding: 9px 8px;
+  }
+}
+
+/* --- Quien prefiere menos movimiento --- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

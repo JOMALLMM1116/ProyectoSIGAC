@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGAC · Mi agenda</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <link rel="stylesheet" href="/css/pantallas.css">
+  <script src="/js/tema.js"></script>
+</head>
+<body>
+
+  <header class="encabezado">
+    <span class="marca">SIGAC</span>
+    <div class="persona">
+      <div class="selector-tema" role="group" aria-label="Modo de color">
+        <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+      </div>
+      <div class="quien">
+        <strong id="nombre-persona"></strong>
+        <span id="detalle-persona" class="detalle"></span>
+      </div>
+      <button id="boton-salir" type="button" class="boton boton-secundario">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenido">
+
+    <div class="barra-herramientas">
+      <h1>Mi agenda</h1>
+      <div class="controles">
+        <label for="fecha" class="texto-suave">Fecha</label>
+        <input id="fecha" type="date">
+        <button id="boton-hoy" type="button" class="boton">Hoy</button>
+      </div>
+    </div>
+
+    <div id="mensaje" class="mensaje oculto" role="status"></div>
+
+    <div class="diseno-con-panel">
+
+      <section class="tarjeta">
+        <p id="resumen" class="texto-suave"></p>
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Paciente</th>
+              <th>Consulta</th>
+              <th>Estado</th>
+              <th>Nota</th>
+              <th><span class="solo-lector">Acción</span></th>
+            </tr>
+          </thead>
+          <tbody id="filas-agenda"></tbody>
+        </table>
+        <p id="sin-citas" class="estado-vacio oculto">No tienes citas en esta fecha. Elige otro día con el calendario.</p>
+      </section>
+
+      <aside id="panel" class="tarjeta panel-lateral oculto" aria-live="polite">
+        <div class="panel-cabecera">
+          <div>
+            <h2 id="panel-paciente"></h2>
+            <p id="panel-detalle" class="texto-suave"></p>
+          </div>
+          <button id="boton-cerrar-panel" type="button" class="boton boton-secundario boton-pequeno">Cerrar</button>
+        </div>
+
+        <p id="panel-motivo"></p>
+
+        <div id="panel-mensaje" class="mensaje oculto" role="status"></div>
+
+        <h3>Historial clínico</h3>
+        <button id="boton-historial" type="button" class="boton boton-secundario boton-pequeno">Ver historial</button>
+        <div id="lista-historial" class="lista-historial"></div>
+
+        <h3>Nueva nota</h3>
+        <form id="formulario-nota" novalidate>
+          <div class="campo">
+            <label for="diagnostico">Diagnóstico</label>
+            <textarea id="diagnostico" rows="3" required></textarea>
+          </div>
+          <div class="campo">
+            <label for="indicaciones">Indicaciones <span class="texto-suave">(opcional)</span></label>
+            <textarea id="indicaciones" rows="3"></textarea>
+          </div>
+          <button type="submit" class="boton">Guardar nota</button>
+        </form>
+
+        <h3>Cerrar la cita</h3>
+        <div class="grupo-botones">
+          <button id="boton-atendida" type="button" class="boton">Marcar atendida</button>
+          <button id="boton-ausente" type="button" class="boton boton-aviso">Marcar ausente</button>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <script src="/js/sesion.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/pagina.js"></script>
+  <script src="/js/medico/agenda.js"></script>
+</body>
+</html>
