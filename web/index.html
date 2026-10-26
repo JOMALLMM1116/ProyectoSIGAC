@@ -5,37 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SIGAC · Iniciar sesión</title>
   <link rel="stylesheet" href="/css/estilos.css">
+  <link rel="stylesheet" href="/css/visual.css">
   <script src="/js/tema.js"></script>
 </head>
 <body>
-  <main class="pagina-inicio">
+  <main class="inicio-dividido">
 
-    <div class="selector-tema" role="group" aria-label="Modo de color">
-      <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
-      <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
-      <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
-    </div>
-
-    <section class="caja-inicio">
-      <h1 class="marca">SIGAC</h1>
-      <p class="subtitulo">Gestión de atención clínica</p>
-
-      <div id="mensaje" class="mensaje mensaje-error oculto" role="alert"></div>
-
-      <form id="formulario-inicio" novalidate>
-        <div class="campo">
-          <label for="token">Token de acceso</label>
-          <input id="token" name="token" type="password"
-                 autocomplete="off" spellcheck="false" required>
-          <span class="ayuda">Te lo entrega el administrador de la clínica. No lo compartas.</span>
-        </div>
-
-        <button id="boton-entrar" type="submit" class="boton boton-ancho">Entrar</button>
-      </form>
-
-      <p class="pie">Uso exclusivo del personal de la clínica.</p>
+    <!-- Panel de la marca -->
+    <section class="panel-marca">
+      <img class="ilustracion" src="/img/clinica.svg" alt="" width="480" height="360">
+      <h1 class="nombre-sistema">SIGAC</h1>
+      <p class="nombre-completo">Sistema de Gestión de Atención Clínica</p>
+      <p class="eslogan">Cada paciente a tiempo, cada dato seguro.</p>
+      <ul class="ventajas">
+        <li>
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-calendar_month"/></svg>
+          Citas asignadas y avisadas automáticamente
+        </li>
+        <li>
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-lock"/></svg>
+          Expedientes cifrados y acceso por rol
+        </li>
+        <li>
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-verified_user"/></svg>
+          Cada acción queda registrada en la bitácora
+        </li>
+      </ul>
     </section>
 
+    <!-- Formulario -->
+    <section class="lado-formulario">
+
+      <div class="selector-tema" role="group" aria-label="Modo de color">
+        <button type="button" data-tema="claro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-light_mode"/></svg>Claro
+        </button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-contrast"/></svg>Intermedio
+        </button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-dark_mode"/></svg>Oscuro
+        </button>
+      </div>
+
+      <div class="caja-inicio">
+        <h2 class="titulo-icono">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-login"/></svg>
+          Iniciar sesión
+        </h2>
+        <p class="subtitulo">Ingresa con el token que te entregó el administrador.</p>
+
+        <div id="mensaje" class="mensaje mensaje-error oculto" role="alert"></div>
+
+        <form id="formulario-inicio" novalidate>
+          <div class="campo">
+            <label for="token">Token de acceso</label>
+            <input id="token" name="token" type="password"
+                   autocomplete="off" spellcheck="false" required>
+            <span class="ayuda">No lo compartas ni lo escribas en ningún lugar visible.</span>
+          </div>
+
+          <button id="boton-entrar" type="submit" class="boton boton-ancho">
+            <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-login"/></svg>
+            Entrar
+          </button>
+        </form>
+
+        <p class="pie">Uso exclusivo del personal de la clínica.</p>
+      </div>
+
+    </section>
   </main>
 
   <script src="/js/sesion.js"></script>
@@ -43,4 +82,3 @@
   <script src="/js/login.js"></script>
 </body>
 </html>
-

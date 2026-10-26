@@ -6,180 +6,389 @@
   <title>SIGAC · Recepción</title>
   <link rel="stylesheet" href="/css/estilos.css">
   <link rel="stylesheet" href="/css/pantallas.css">
+  <link rel="stylesheet" href="/css/visual.css">
+  <link rel="stylesheet" href="/css/panel.css">
   <script src="/js/tema.js"></script>
 </head>
 <body>
+<div class="app-lateral">
 
-  <header class="encabezado">
-    <span class="marca">SIGAC</span>
-    <div class="persona">
+  <!-- Barra lateral -->
+  <aside class="barra-lateral">
+    <div class="lateral-marca">
+      <p class="nombre">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-medical_services"/></svg>
+        SIGAC
+      </p>
+      <p class="lema">Gestión de Atención Clínica</p>
+    </div>
+
+    <nav class="menu-lateral" aria-label="Secciones de recepción">
+      <button type="button" class="opcion-menu" data-seccion="panel" aria-current="page">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-monitor_heart"/></svg>
+        Panel
+      </button>
+      <button type="button" class="opcion-menu" data-seccion="nueva">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-add_circle"/></svg>
+        Nueva solicitud
+      </button>
+      <button type="button" class="opcion-menu" data-seccion="citas">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-calendar_month"/></svg>
+        Citas
+      </button>
+      <button type="button" class="opcion-menu" data-seccion="espera">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-hourglass_top"/></svg>
+        Lista de espera
+      </button>
+    </nav>
+
+    <div class="lateral-pie">
       <div class="selector-tema" role="group" aria-label="Modo de color">
-        <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
-        <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
-        <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+        <button type="button" data-tema="claro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-light_mode"/></svg>Claro
+        </button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-contrast"/></svg>Intermedio
+        </button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-dark_mode"/></svg>Oscuro
+        </button>
       </div>
-      <div class="quien">
-        <strong id="nombre-persona"></strong>
-        <span class="detalle">Recepción</span>
+      <div class="lateral-persona">
+        <span id="avatar" class="avatar" aria-hidden="true"></span>
+        <div class="datos">
+          <strong id="nombre-persona"></strong>
+          <span>Recepción</span>
+        </div>
       </div>
-      <button id="boton-salir" type="button" class="boton boton-secundario">Cerrar sesión</button>
+      <button id="boton-salir" type="button" class="boton boton-secundario boton-salir">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-logout"/></svg>
+        Cerrar sesión
+      </button>
     </div>
-  </header>
+  </aside>
 
-  <main class="contenido">
+  <!-- Zona principal -->
+  <div class="zona-principal">
 
-    <div class="pestanas" role="tablist" aria-label="Secciones de recepción">
-      <button type="button" class="pestana" role="tab" data-seccion="citas" aria-selected="true">Citas del día</button>
-      <button type="button" class="pestana" role="tab" data-seccion="nueva" aria-selected="false">Nueva solicitud</button>
-      <button type="button" class="pestana" role="tab" data-seccion="espera" aria-selected="false">Lista de espera</button>
-    </div>
-
-    <div id="mensaje" class="mensaje oculto" role="status"></div>
-
-    <!-- Citas del día -->
-    <section id="seccion-citas" class="tarjeta" role="tabpanel">
-      <div class="barra-herramientas">
-        <h1>Citas del día</h1>
-        <div class="controles">
-          <label for="fecha" class="texto-suave">Fecha</label>
-          <input id="fecha" type="date">
-          <button id="boton-hoy" type="button" class="boton">Hoy</button>
-        </div>
+    <header class="barra-superior">
+      <div>
+        <h1 id="titulo-seccion">Panel principal</h1>
+        <p id="subtitulo-seccion" class="fecha-larga"></p>
       </div>
-      <p id="resumen-citas" class="texto-suave"></p>
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Hora</th>
-            <th>Paciente</th>
-            <th>Médico</th>
-            <th>Especialidad</th>
-            <th>Estado</th>
-            <th>Aviso</th>
-            <th><span class="solo-lector">Acción</span></th>
-          </tr>
-        </thead>
-        <tbody id="filas-citas"></tbody>
-      </table>
-      <p id="sin-citas" class="estado-vacio oculto">No hay citas en esta fecha.</p>
-    </section>
-
-    <!-- Nueva solicitud -->
-    <section id="seccion-nueva" class="tarjeta oculto" role="tabpanel">
-      <h1>Nueva solicitud de cita</h1>
-      <p class="texto-suave">El sistema asigna médico y horario en los próximos minutos. Las preferencias son opcionales.</p>
-
-      <form id="formulario-solicitud" novalidate>
-        <h2>Paciente</h2>
-        <div class="rejilla">
-          <div class="campo">
-            <label for="dpi">DPI</label>
-            <input id="dpi" inputmode="numeric" maxlength="13" autocomplete="off" required>
-            <span class="ayuda">13 dígitos, sin espacios</span>
-          </div>
-          <div class="campo">
-            <label for="telefono">Teléfono</label>
-            <input id="telefono" inputmode="numeric" maxlength="8" autocomplete="off" required>
-          </div>
-          <div class="campo">
-            <label for="nombre">Nombres</label>
-            <input id="nombre" autocomplete="off" required>
-          </div>
-          <div class="campo">
-            <label for="apellido">Apellidos</label>
-            <input id="apellido" autocomplete="off" required>
-          </div>
-          <div class="campo">
-            <label for="correo">Correo</label>
-            <input id="correo" type="email" autocomplete="off" required>
-          </div>
-          <div class="campo">
-            <label for="fecha-nacimiento">Fecha de nacimiento</label>
-            <input id="fecha-nacimiento" type="date" required>
-          </div>
-        </div>
-
-        <h2>Consulta</h2>
-        <div class="rejilla">
-          <div class="campo">
-            <label for="tipo-consulta">Tipo de consulta</label>
-            <select id="tipo-consulta" required>
-              <option value="general">General</option>
-              <option value="control">Control</option>
-              <option value="urgencia">Urgencia</option>
-            </select>
-          </div>
-          <div class="campo">
-            <label for="fecha-preferida">Fecha deseada</label>
-            <input id="fecha-preferida" type="date" required>
-          </div>
-          <div class="campo ancho-completo">
-            <label for="motivo">Motivo</label>
-            <textarea id="motivo" rows="2" maxlength="255" required></textarea>
-          </div>
-        </div>
-
-        <h2>Preferencias <span class="texto-suave">(opcionales)</span></h2>
-        <div class="rejilla">
-          <div class="campo">
-            <label for="franja">Franja</label>
-            <select id="franja">
-              <option value="">Sin preferencia</option>
-              <option value="manana">Mañana (08:00 a 12:00)</option>
-              <option value="tarde">Tarde (13:30 a 17:00)</option>
-            </select>
-          </div>
-          <div class="campo">
-            <label for="hora">Hora</label>
-            <input id="hora" type="time" step="1800">
-            <span class="ayuda">Dentro de la franja elegida</span>
-          </div>
-          <div class="campo">
-            <label for="especialidad">Especialidad</label>
-            <select id="especialidad">
-              <option value="">Sin preferencia (Medicina General)</option>
-              <option value="Medicina General">Medicina General</option>
-              <option value="Pediatria">Pediatría</option>
-              <option value="Medicina Interna">Medicina Interna</option>
-              <option value="Ginecologia">Ginecología</option>
-            </select>
-          </div>
-          <div class="campo">
-            <label for="id-medico">Número de médico</label>
-            <input id="id-medico" inputmode="numeric" autocomplete="off">
-            <span class="ayuda">Solo si el paciente pide un médico concreto</span>
-          </div>
-        </div>
-
-        <button type="submit" class="boton">Registrar solicitud</button>
-      </form>
-    </section>
-
-    <!-- Lista de espera -->
-    <section id="seccion-espera" class="tarjeta oculto" role="tabpanel">
-      <div class="barra-herramientas">
-        <h1>Lista de espera</h1>
-        <button id="boton-actualizar-espera" type="button" class="boton">Actualizar</button>
+      <div class="acciones-superiores">
+        <label id="caja-buscar-hoy" class="buscador">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-search"/></svg>
+          <span class="solo-lector">Buscar en la agenda de hoy</span>
+          <input id="buscar-hoy" type="search" autocomplete="off" placeholder="Buscar paciente o médico">
+        </label>
+        <button id="boton-nueva" type="button" class="boton">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-add_circle"/></svg>
+          Nueva solicitud
+        </button>
       </div>
-      <p class="texto-suave">Por fecha deseada y, dentro de cada fecha, en el orden en que recibirían un cupo liberado.</p>
-      <p id="resumen-espera" class="texto-suave"></p>
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Fecha deseada</th>
-            <th>Paciente</th>
-            <th>Consulta</th>
-            <th>Preferencia</th>
-            <th>Prioridad</th>
-            <th>En espera desde</th>
-          </tr>
-        </thead>
-        <tbody id="filas-espera"></tbody>
-      </table>
-      <p id="sin-espera" class="estado-vacio oculto">Nadie está esperando un cupo.</p>
-    </section>
+    </header>
 
-  </main>
+    <main class="contenido-panel">
+
+      <div id="mensaje" class="mensaje oculto" role="status"></div>
+
+      <!-- Panel principal -->
+      <section id="seccion-panel">
+        <div class="tarjetas-resumen">
+          <div class="tarjeta-dato">
+            <p class="etiqueta">Citas de hoy</p>
+            <p id="dato-total" class="valor valor-total">–</p>
+          </div>
+          <div class="tarjeta-dato">
+            <p class="etiqueta">Confirmadas</p>
+            <p id="dato-confirmadas" class="valor valor-confirmadas">–</p>
+          </div>
+          <div class="tarjeta-dato">
+            <p class="etiqueta">En lista de espera</p>
+            <p id="dato-espera" class="valor valor-espera">–</p>
+          </div>
+          <div class="tarjeta-dato">
+            <p class="etiqueta">Canceladas hoy</p>
+            <p id="dato-canceladas" class="valor valor-canceladas">–</p>
+          </div>
+        </div>
+
+        <div class="rejilla-panel">
+          <section class="tarjeta">
+            <div class="tarjeta-cabecera">
+              <h2>
+                <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-today"/></svg>
+                Agenda de hoy
+              </h2>
+              <button id="ver-todas" type="button" class="enlace">Ver todas</button>
+            </div>
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="filas-hoy"></tbody>
+            </table>
+            <div id="sin-hoy" class="estado-vacio oculto">
+              <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-event_busy"/></svg>
+              No hay citas para hoy.
+            </div>
+          </section>
+
+          <div class="columna-derecha">
+            <section class="tarjeta">
+              <div class="tarjeta-cabecera">
+                <h2>
+                  <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-hourglass_top"/></svg>
+                  Lista de espera
+                  <span id="contador-espera" class="contador">0</span>
+                </h2>
+              </div>
+              <ul id="lista-espera-corta" class="lista-compacta"></ul>
+              <p id="sin-espera-corta" class="texto-suave oculto">Nadie está esperando un cupo.</p>
+              <button id="ver-espera" type="button" class="boton boton-contorno">Ver lista completa</button>
+            </section>
+
+            <section class="tarjeta">
+              <div class="tarjeta-cabecera">
+                <h2>
+                  <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-history"/></svg>
+                  Actividad de esta sesión
+                </h2>
+              </div>
+              <ul id="lista-actividad" class="lista-actividad"></ul>
+              <p id="sin-actividad" class="texto-suave">Todavía no has registrado ni cancelado nada en esta sesión.</p>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- Nueva solicitud -->
+      <section id="seccion-nueva" class="oculto">
+        <div class="tarjeta formulario-centrado">
+          <form id="formulario-solicitud" novalidate>
+
+            <h2 class="seccion-formulario">Datos del paciente</h2>
+            <div class="rejilla">
+              <div class="campo" id="campo-dpi">
+                <label for="dpi">DPI <span class="obligatorio">*</span></label>
+                <input id="dpi" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 dígitos">
+                <span id="error-dpi" class="error-campo oculto"></span>
+              </div>
+              <div class="campo" id="campo-fecha-nacimiento">
+                <label for="fecha-nacimiento">Fecha de nacimiento <span class="obligatorio">*</span></label>
+                <input id="fecha-nacimiento" type="date">
+                <span id="error-fecha-nacimiento" class="error-campo oculto"></span>
+              </div>
+              <div class="campo" id="campo-nombre">
+                <label for="nombre">Nombre <span class="obligatorio">*</span></label>
+                <input id="nombre" autocomplete="off" placeholder="Nombres del paciente">
+                <span id="error-nombre" class="error-campo oculto"></span>
+              </div>
+              <div class="campo" id="campo-apellido">
+                <label for="apellido">Apellido <span class="obligatorio">*</span></label>
+                <input id="apellido" autocomplete="off" placeholder="Apellidos del paciente">
+                <span id="error-apellido" class="error-campo oculto"></span>
+              </div>
+              <div class="campo" id="campo-telefono">
+                <label for="telefono">Teléfono <span class="obligatorio">*</span></label>
+                <input id="telefono" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="8 dígitos">
+                <span id="error-telefono" class="error-campo oculto"></span>
+              </div>
+              <div class="campo" id="campo-correo">
+                <label for="correo">Correo electrónico <span class="obligatorio">*</span></label>
+                <input id="correo" type="email" autocomplete="off" placeholder="ejemplo@correo.com">
+                <span id="error-correo" class="error-campo oculto"></span>
+              </div>
+            </div>
+
+            <h2 class="seccion-formulario">Datos de la consulta</h2>
+            <div class="campo">
+              <label id="etiqueta-tipo">Tipo de consulta <span class="obligatorio">*</span></label>
+              <div class="segmentado" role="group" aria-labelledby="etiqueta-tipo">
+                <button type="button" data-tipo="urgencia" aria-pressed="false">Urgencia</button>
+                <button type="button" data-tipo="control" aria-pressed="false">Control</button>
+                <button type="button" data-tipo="general" aria-pressed="true">General</button>
+              </div>
+            </div>
+            <div class="campo" id="campo-fecha-preferida">
+              <label for="fecha-preferida">Fecha preferida <span class="obligatorio">*</span></label>
+              <input id="fecha-preferida" type="date">
+              <span id="error-fecha-preferida" class="error-campo oculto"></span>
+            </div>
+            <div class="campo" id="campo-motivo">
+              <label for="motivo">Motivo de la consulta</label>
+              <textarea id="motivo" rows="3" maxlength="255" placeholder="Máximo 255 caracteres"></textarea>
+              <span id="contador-motivo" class="contador-caracteres">0 / 255</span>
+            </div>
+
+            <details class="preferencias">
+              <summary>Preferencias (opcionales)</summary>
+              <div class="rejilla">
+                <div class="campo">
+                  <label for="franja">Franja</label>
+                  <select id="franja">
+                    <option value="">Sin preferencia</option>
+                    <option value="manana">Mañana (08:00 a 12:00)</option>
+                    <option value="tarde">Tarde (13:30 a 17:00)</option>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label for="hora">Hora</label>
+                  <input id="hora" type="time" step="1800">
+                  <span class="ayuda">Dentro de la franja elegida</span>
+                </div>
+                <div class="campo">
+                  <label for="especialidad">Especialidad</label>
+                  <select id="especialidad">
+                    <option value="">Sin preferencia (Medicina General)</option>
+                    <option value="Medicina General">Medicina General</option>
+                    <option value="Pediatria">Pediatría</option>
+                    <option value="Medicina Interna">Medicina Interna</option>
+                    <option value="Ginecologia">Ginecología</option>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label for="id-medico">Número de médico</label>
+                  <input id="id-medico" inputmode="numeric" autocomplete="off">
+                  <span class="ayuda">Solo si el paciente pide un médico concreto</span>
+                </div>
+              </div>
+            </details>
+
+            <h2 class="seccion-formulario">Validación</h2>
+            <div class="reglas">
+              <h3>Reglas aplicadas</h3>
+              <ul>
+                <li><svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>El DPI debe tener exactamente 13 dígitos</li>
+                <li><svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>El teléfono debe tener 8 dígitos e iniciar entre 2 y 8</li>
+                <li><svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>La fecha preferida no puede ser anterior al día actual</li>
+                <li><svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>El DPI y el teléfono se cifran antes de almacenarse, y el DPI se enmascara en la bitácora</li>
+              </ul>
+            </div>
+
+            <div class="acciones-formulario">
+              <button id="boton-cancelar-formulario" type="button" class="boton boton-claro">Cancelar</button>
+              <button type="submit" class="boton">
+                <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>
+                Registrar solicitud
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Citas -->
+      <section id="seccion-citas" class="oculto">
+        <div class="tarjeta">
+          <div class="barra-filtros">
+            <label class="buscador">
+              <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-search"/></svg>
+              <span class="solo-lector">Buscar por paciente</span>
+              <input id="buscar-citas" type="search" autocomplete="off" placeholder="Buscar por paciente">
+            </label>
+            <div class="filtro">
+              <label for="filtro-estado">Estado</label>
+              <select id="filtro-estado">
+                <option value="">Todos</option>
+                <option value="confirmada">Confirmada</option>
+                <option value="atendida">Atendida</option>
+                <option value="ausente">Ausente</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+            </div>
+            <div class="filtro">
+              <label for="filtro-medico">Médico</label>
+              <select id="filtro-medico">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filtro">
+              <label for="filtro-tipo">Tipo</label>
+              <select id="filtro-tipo">
+                <option value="">Todos</option>
+                <option value="general">General</option>
+                <option value="control">Control</option>
+                <option value="urgencia">Urgencia</option>
+              </select>
+            </div>
+            <div class="filtro">
+              <label for="filtro-desde">Desde</label>
+              <input id="filtro-desde" type="date">
+            </div>
+            <div class="filtro">
+              <label for="filtro-hasta">Hasta</label>
+              <input id="filtro-hasta" type="date">
+            </div>
+            <button id="limpiar-filtros" type="button" class="enlace">Limpiar filtros</button>
+          </div>
+        </div>
+
+        <div class="tarjeta">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Paciente</th>
+                <th>Médico</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="filas-citas"></tbody>
+          </table>
+          <div id="sin-citas" class="estado-vacio oculto">
+            <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-event_busy"/></svg>
+            No hay citas que coincidan con los filtros.
+          </div>
+          <div class="paginacion">
+            <span id="texto-paginacion"></span>
+            <div id="paginas" class="paginas"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lista de espera -->
+      <section id="seccion-espera" class="oculto">
+        <div class="tarjeta">
+          <div class="barra-herramientas">
+            <p class="texto-suave">Por fecha deseada y, dentro de cada fecha, en el orden en que recibirían un cupo liberado.</p>
+            <button id="boton-actualizar-espera" type="button" class="boton">
+              <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-refresh"/></svg>
+              Actualizar
+            </button>
+          </div>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha deseada</th>
+                <th>Paciente</th>
+                <th>Consulta</th>
+                <th>Preferencia</th>
+                <th>Prioridad</th>
+                <th>En espera desde</th>
+              </tr>
+            </thead>
+            <tbody id="filas-espera"></tbody>
+          </table>
+          <div id="sin-espera" class="estado-vacio oculto">
+            <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>
+            Nadie está esperando un cupo.
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
 
   <script src="/js/sesion.js"></script>
   <script src="/js/api.js"></script>
@@ -187,4 +396,3 @@
   <script src="/js/recepcion/panel.js"></script>
 </body>
 </html>
-

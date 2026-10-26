@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-labelledby="titulo-clinica">
+  <title id="titulo-clinica">Ilustración de una clínica</title>
+
+  <!-- Fondo: un círculo suave detrás del edificio -->
+  <circle cx="240" cy="180" r="160" fill="#1F7A5C" opacity="0.22"/>
+
+  <!-- Nubes -->
+  <ellipse cx="105" cy="78" rx="38" ry="12" fill="#FAF6EC" opacity="0.12"/>
+  <ellipse cx="128" cy="68" rx="24" ry="10" fill="#FAF6EC" opacity="0.12"/>
+  <ellipse cx="392" cy="128" rx="34" ry="11" fill="#FAF6EC" opacity="0.10"/>
+
+  <!-- Corazón -->
+  <path d="M378 66c-7-12-26-10-26 5 0 12 26 26 26 26s26-14 26-26c0-15-19-17-26-5z" fill="#E3B45B"/>
+
+  <!-- Suelo -->
+  <rect x="40" y="292" width="400" height="6" rx="3" fill="#52B788" opacity="0.5"/>
+
+  <!-- Torre central con la cruz -->
+  <rect x="198" y="66" width="84" height="64" rx="10" fill="#FAF6EC"/>
+  <circle cx="240" cy="98" r="21" fill="#1F7A5C"/>
+  <rect x="235" y="85" width="10" height="26" rx="2" fill="#FAF6EC"/>
+  <rect x="227" y="93" width="26" height="10" rx="2" fill="#FAF6EC"/>
+
+  <!-- Edificio principal -->
+  <rect x="120" y="108" width="240" height="22" rx="6" fill="#52B788"/>
+  <rect x="130" y="126" width="220" height="166" rx="8" fill="#FAF6EC"/>
+
+  <!-- Ventanas -->
+  <g fill="#CFE8DC">
+    <rect x="150" y="150" width="30" height="26" rx="4"/>
+    <rect x="192" y="150" width="30" height="26" rx="4"/>
+    <rect x="258" y="150" width="30" height="26" rx="4"/>
+    <rect x="300" y="150" width="30" height="26" rx="4"/>
+    <rect x="150" y="196" width="30" height="26" rx="4"/>
+    <rect x="300" y="196" width="30" height="26" rx="4"/>
+  </g>
+
+  <!-- Puerta y escalón -->
+  <rect x="212" y="222" width="56" height="70" rx="6" fill="#1F7A5C"/>
+  <rect x="239" y="230" width="2" height="62" fill="#52B788"/>
+  <rect x="202" y="290" width="76" height="6" rx="2" fill="#D9D4C7"/>
+
+  <!-- Árboles -->
+  <rect x="86" y="246" width="9" height="48" rx="2" fill="#8B6B3E"/>
+  <circle cx="90" cy="232" r="27" fill="#52B788"/>
+  <circle cx="74" cy="246" r="15" fill="#3E9C72"/>
+  <rect x="385" y="246" width="9" height="48" rx="2" fill="#8B6B3E"/>
+  <circle cx="390" cy="232" r="27" fill="#52B788"/>
+  <circle cx="406" cy="246" r="15" fill="#3E9C72"/>
+
+  <!-- Línea de pulso -->
+  <polyline points="40,326 150,326 168,326 184,300 200,348 216,312 232,326 440,326"
+            fill="none" stroke="#E3B45B" stroke-width="4"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

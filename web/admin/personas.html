@@ -6,46 +6,80 @@
   <title>SIGAC · Administración</title>
   <link rel="stylesheet" href="/css/estilos.css">
   <link rel="stylesheet" href="/css/pantallas.css">
+  <link rel="stylesheet" href="/css/visual.css">
   <script src="/js/tema.js"></script>
 </head>
 <body>
 
   <header class="encabezado">
-    <span class="marca">SIGAC</span>
+    <span class="marca">
+      <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-medical_services"/></svg>
+      SIGAC
+    </span>
     <div class="persona">
       <div class="selector-tema" role="group" aria-label="Modo de color">
-        <button type="button" data-tema="claro" aria-pressed="false">Claro</button>
-        <button type="button" data-tema="intermedio" aria-pressed="false">Intermedio</button>
-        <button type="button" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+        <button type="button" data-tema="claro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-light_mode"/></svg>Claro
+        </button>
+        <button type="button" data-tema="intermedio" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-contrast"/></svg>Intermedio
+        </button>
+        <button type="button" data-tema="oscuro" aria-pressed="false">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-dark_mode"/></svg>Oscuro
+        </button>
       </div>
       <div class="quien">
         <strong id="nombre-persona"></strong>
         <span class="detalle">Administración</span>
       </div>
-      <button id="boton-salir" type="button" class="boton boton-secundario">Cerrar sesión</button>
+      <button id="boton-salir" type="button" class="boton boton-secundario">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-logout"/></svg>
+        Cerrar sesión
+      </button>
     </div>
   </header>
 
   <main class="contenido">
 
-    <h1>Personas</h1>
+    <h1 class="titulo-icono">
+      <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-group"/></svg>
+      Personas
+    </h1>
 
     <div class="pestanas" role="tablist" aria-label="Tipos de persona">
-      <button type="button" class="pestana" role="tab" data-seccion="medicos" aria-selected="true">Médicos</button>
-      <button type="button" class="pestana" role="tab" data-seccion="recepcionistas" aria-selected="false">Recepcionistas</button>
-      <button type="button" class="pestana" role="tab" data-seccion="pacientes" aria-selected="false">Pacientes</button>
+      <button type="button" class="pestana" role="tab" data-seccion="medicos" aria-selected="true">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-stethoscope"/></svg>
+        Médicos
+      </button>
+      <button type="button" class="pestana" role="tab" data-seccion="recepcionistas" aria-selected="false">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-badge"/></svg>
+        Recepcionistas
+      </button>
+      <button type="button" class="pestana" role="tab" data-seccion="pacientes" aria-selected="false">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-person"/></svg>
+        Pacientes
+      </button>
     </div>
 
     <div id="mensaje" class="mensaje oculto" role="status"></div>
 
     <!-- Token recién generado: se muestra una sola vez -->
     <section id="caja-token" class="tarjeta caja-token oculto" aria-live="polite">
-      <h2>Token de acceso de <span id="token-para"></span></h2>
+      <h2>
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-key"/></svg>
+        Token de acceso de <span id="token-para"></span>
+      </h2>
       <p>Se muestra <strong>una sola vez</strong>. Entrégalo a la persona y no lo guardes en ningún otro lugar: el sistema no puede volver a mostrarlo.</p>
       <code id="token-valor" class="token-valor"></code>
       <div class="grupo-botones">
-        <button id="boton-copiar-token" type="button" class="boton">Copiar</button>
-        <button id="boton-ocultar-token" type="button" class="boton boton-secundario-claro">Ya lo entregué</button>
+        <button id="boton-copiar-token" type="button" class="boton">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-content_copy"/></svg>
+          Copiar
+        </button>
+        <button id="boton-ocultar-token" type="button" class="boton boton-secundario-claro">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-check_circle"/></svg>
+          Ya lo entregué
+        </button>
       </div>
     </section>
 
@@ -65,7 +99,10 @@
         <tbody id="filas-medicos"></tbody>
       </table>
 
-      <h2 class="separado">Agregar médico</h2>
+      <h2 class="separado titulo-icono">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-person_add"/></svg>
+        Agregar médico
+      </h2>
       <form id="formulario-medico" novalidate>
         <div class="rejilla">
           <div class="campo">
@@ -83,7 +120,10 @@
             <span class="ayuda">Elige una de la lista o escribe una nueva</span>
           </div>
         </div>
-        <button type="submit" class="boton">Agregar médico</button>
+        <button type="submit" class="boton">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-person_add"/></svg>
+          Agregar médico
+        </button>
       </form>
     </section>
 
@@ -101,13 +141,19 @@
         <tbody id="filas-recepcionistas"></tbody>
       </table>
 
-      <h2 class="separado">Agregar recepcionista</h2>
+      <h2 class="separado titulo-icono">
+        <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-person_add"/></svg>
+        Agregar recepcionista
+      </h2>
       <form id="formulario-recepcionista" novalidate>
         <div class="campo">
           <label for="recepcionista-nombre">Nombre completo</label>
           <input id="recepcionista-nombre" autocomplete="off" required>
         </div>
-        <button type="submit" class="boton">Agregar recepcionista</button>
+        <button type="submit" class="boton">
+          <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-person_add"/></svg>
+          Agregar recepcionista
+        </button>
       </form>
     </section>
 
@@ -116,7 +162,10 @@
       <div class="barra-herramientas">
         <p class="texto-suave">Los pacientes se registran con su primera solicitud de cita, desde recepción.</p>
         <div class="controles">
-          <label for="buscar-paciente" class="texto-suave">Buscar</label>
+          <label for="buscar-paciente" class="texto-suave">
+            <svg class="icono" aria-hidden="true"><use href="/img/iconos.svg#i-search"/></svg>
+            <span class="solo-lector">Buscar</span>
+          </label>
           <input id="buscar-paciente" type="search" autocomplete="off" placeholder="Nombre o número">
         </div>
       </div>

@@ -81,19 +81,18 @@
     const celda = document.createElement('td');
     const grupo = PAGINA.crear('div', 'grupo-botones');
 
-    function boton(texto, clase, accion) {
-      const b = PAGINA.crear('button', 'boton boton-pequeno ' + clase, texto);
-      b.type = 'button';
+    function boton(texto, clase, icono, accion) {
+      const b = PAGINA.boton(texto, 'boton boton-pequeno ' + clase, icono);
       b.addEventListener('click', () => ejecutar(accion, entidad, p));
       grupo.appendChild(b);
     }
 
     if (p.estado === 'activo') {
-      boton('Desactivar', 'boton-aviso', 'desactivar');
-      boton('Dar de baja', 'boton-peligro', 'dar_baja');
+      boton('Desactivar', 'boton-aviso', 'block', 'desactivar');
+      boton('Dar de baja', 'boton-peligro', 'delete_forever', 'dar_baja');
     } else if (p.estado === 'inactivo') {
-      boton('Reactivar', '', 'reactivar');
-      boton('Dar de baja', 'boton-peligro', 'dar_baja');
+      boton('Reactivar', '', 'replay', 'reactivar');
+      boton('Dar de baja', 'boton-peligro', 'delete_forever', 'dar_baja');
     }
 
     celda.appendChild(grupo);
@@ -258,4 +257,3 @@
 
   cargar();
 })();
-

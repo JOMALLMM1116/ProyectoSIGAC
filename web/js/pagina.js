@@ -1,12 +1,15 @@
 // pagina.js — SIGAC
 // Lo común de las pantallas de trabajo: exige el rol, pinta a la persona
-// en el encabezado, conecta Cerrar sesión y ofrece utilidades compartidas.
+// en el encabezado, conecta Cerrar sesión y ofrece utilidades compartidas,
+// incluidos los íconos de /img/iconos.svg.
 //
 // Todo el texto que viene del servidor se escribe con textContent, nunca
 // con innerHTML: así un nombre con caracteres raros nunca se interpreta
 // como código.
 
 const PAGINA = (() => {
+
+  const SVG = 'http://www.w3.org/2000/svg';
 
   const NOMBRES_ESTADO = {
     confirmada: 'Confirmada',
@@ -17,6 +20,12 @@ const PAGINA = (() => {
     inactivo: 'Inactivo',
     baja: 'Baja',
     vencida: 'Fecha pasada'
+  };
+
+  const ICONO_MENSAJE = {
+    exito: 'check_circle',
+    error: 'warning',
+    aviso: 'warning'
   };
 
   function iniciar(rol) {
@@ -50,18 +59,45 @@ const PAGINA = (() => {
     return el;
   }
 
+  // Crea un ícono de /img/iconos.svg. Es decorativo: el texto del botón
+  // o del título ya dice lo mismo, así que se oculta a los lectores de pantalla.
+  function icono(nombre, clase) {
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('class', 'icono' + (clase ? ' ' + clase : ''));
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const uso = document.createElementNS(SVG, 'use');
+    uso.setAttribute('href', '/img/iconos.svg#i-' + nombre);
+    svg.appendChild(uso);
+    return svg;
+  }
+
+  // Crea un botón con ícono y texto
+  function boton(texto, clase, nombreIcono) {
+    const b = crear('button', clase);
+    b.type = 'button';
+    if (nombreIcono) {
+      b.appendChild(icono(nombreIcono));
+    }
+    b.appendChild(document.createTextNode(texto));
+    return b;
+  }
+
   function estado(valor) {
     return crear('span', 'estado estado-' + valor, NOMBRES_ESTADO[valor] || valor);
   }
 
   function mostrarMensaje(elemento, tipo, texto) {
     elemento.className = 'mensaje mensaje-' + tipo;
-    elemento.textContent = texto;
+    elemento.replaceChildren(
+      icono(ICONO_MENSAJE[tipo] || 'warning'),
+      document.createTextNode(' ' + texto)
+    );
   }
 
   function ocultarMensaje(elemento) {
     elemento.className = 'mensaje oculto';
-    elemento.textContent = '';
+    elemento.replaceChildren();
   }
 
   // Texto legible de una respuesta de rechazo de n8n
@@ -72,6 +108,5 @@ const PAGINA = (() => {
     return respuesta.mensaje || 'Ocurrió un error inesperado';
   }
 
-  return { iniciar, hoy, crear, estado, mostrarMensaje, ocultarMensaje, textoError };
+  return { iniciar, hoy, crear, icono, boton, estado, mostrarMensaje, ocultarMensaje, textoError };
 })();
-

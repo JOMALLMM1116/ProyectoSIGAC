@@ -69,8 +69,7 @@
       fila.appendChild(PAGINA.crear('td', 'texto-suave', cita.tiene_nota ? 'Escrita' : 'Sin nota'));
 
       const celdaAccion = document.createElement('td');
-      const boton = PAGINA.crear('button', 'boton boton-pequeno', 'Abrir');
-      boton.type = 'button';
+      const boton = PAGINA.boton('Abrir', 'boton boton-pequeno', 'visibility');
       boton.addEventListener('click', () => abrirPanel(cita.id_cita));
       celdaAccion.appendChild(boton);
       fila.appendChild(celdaAccion);
