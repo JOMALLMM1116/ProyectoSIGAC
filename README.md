@@ -262,13 +262,15 @@ Con los flujos publicados, la aplicación web está en:
 http://localhost:8080
 ```
 
+La pantalla de inicio presenta el sistema con una ilustración de la clínica, el
+eslogan *«Cada paciente a tiempo, cada dato seguro»* y sus tres ideas principales.
 Se inicia sesión con el token de la persona: el de un médico, el de recepción o
 el del administrador. La web consulta quién es y abre la pantalla de su rol:
 
 | Rol | Pantalla | Qué permite |
 |---|---|---|
 | medico | Mi agenda | Ver sus citas por fecha; en un panel lateral, consultar el historial clínico, escribir la nota y marcar la cita como atendida o ausente |
-| recepcion | Recepción | Ver las citas del día de todos los médicos y cancelarlas; registrar solicitudes; consultar la lista de espera |
+| recepcion | Recepción | Barra lateral con cuatro secciones: **Panel** (resumen del día en cuatro tarjetas, agenda de hoy con buscador, lista de espera resumida y actividad de la sesión), **Nueva solicitud** (validación de cada campo antes de enviar), **Citas** (rango de hasta 31 días, filtros por estado, médico y tipo, paginación y cancelación) y **Lista de espera** |
 | admin | Personas | Ver médicos, recepcionistas y pacientes; agregarlos, desactivarlos, darlos de baja y reactivarlos |
 
 - El token se guarda solo mientras la pestaña está abierta (`sessionStorage`):
@@ -279,6 +281,36 @@ el del administrador. La web consulta quién es y abre la pantalla de su rol:
   destacada con los botones **Copiar** y **Ya lo entregué**.
 - La web tiene tres modos de color, **Claro**, **Intermedio** y **Oscuro**, y
   recuerda el elegido. La primera vez usa el del sistema operativo.
+- La validación de la nueva solicitud en la página solo ayuda a la persona a
+  corregir antes de enviar: WF-01 sigue siendo quien valida, y sus rechazos se
+  muestran arriba del formulario.
+- La **actividad de la sesión** vive solo en la memoria de la página: muestra lo
+  que la recepcionista registró o canceló desde que entró, y se borra al recargar.
+
+### 4.8 Íconos de la aplicación web
+
+Los íconos son **Material Symbols** de Google, con licencia **Apache 2.0**. No se
+cargan desde los servidores de Google: el script `scripts/construir_iconos.sh`
+los descarga del repositorio oficial y los junta en un solo archivo,
+`web/img/iconos.svg`, junto con la licencia en `web/img/iconos-LICENSE.txt`. Así
+la política de seguridad de Nginx no se abre a servidores externos, la web
+funciona sin conexión a Internet y el navegador no avisa a nadie al cargarlos.
+
+El archivo ya está en el repositorio. Solo hace falta volver a ejecutar el
+script para agregar un ícono: se suma su nombre a la lista `ICONOS` (los nombres
+son los de https://fonts.google.com/icons) y luego:
+
+```bash
+./scripts/construir_iconos.sh
+```
+
+La ilustración de la pantalla de inicio, `web/img/clinica.svg`, es original del
+proyecto.
+
+> Después de cambiar un archivo `.js` o `.css`, recarga con las herramientas del
+> navegador abiertas (**F12**), clic derecho en recargar → *Vaciar caché y volver
+> a cargar de manera forzada*. Si no, el navegador puede seguir usando la versión
+> anterior.
 
 > Para copiar un token del `.env` sin mostrarlo en la terminal, ábrelo en el
 > editor, selecciona el valor con doble clic y cópialo. Desde WSL, `clip.exe`
@@ -511,7 +543,7 @@ curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5678/webhook/cita \
   -d '{"dpi":"2547896320101","nombre":"Juan","apellido":"Perez","telefono":"55123456","correo":"juan@correo.com","fecha_nacimiento":"1990-05-12","tipo_consulta":"general","motivo":"dolor","fecha_preferida":"'"$FECHA"'"}'
 ```
 
-La respuesta incluye `id_solicitud`, el hash de auditoría y el DPI enmascarado.
+La respuesta incluye el `id_solicitud`, el estado `pendiente` y el hash de auditoría. El DPI no se devuelve: se guarda cifrado y aparece enmascarado solo en la bitácora.
 
 ### CP-02 · Autenticación ausente → 401
 
@@ -906,8 +938,8 @@ La consulta debe devolver cero filas.
 
 Los 57 nodos Code de WF-00 a WF-09 tienen pruebas unitarias con Jest: el
 equivalente de JUnit, Mockito y JaCoCo. Se ejecutan sin levantar los
-contenedores. Los 12 nodos Code de WF-10 todavía no tienen pruebas unitarias;
-sus casos se verificaron contra el endpoint (sección 6).
+contenedores. Los 12 nodos Code de WF-10 se verificaron con sus casos contra el
+endpoint (sección 6).
 
 ```bash
 cd pruebas
@@ -947,7 +979,7 @@ El detalle de cada nodo, sus casos de prueba y los resultados están en
 | 3 | Cifrado AES-256-GCM en reposo de DPI, teléfono, diagnóstico e indicaciones |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256 |
 | 4b | Auditoría de acceso: cada consulta del historial clínico y cada inicio de sesión quedan registrados |
-| 5 | Validación estricta de entradas y enmascaramiento del DPI en la salida |
+| 5 | Validación estricta de entradas y enmascaramiento del DPI en la bitácora |
 | 6 | Consultas parametrizadas en todos los nodos Postgres que reciben valores |
 | 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08, WF-09 y WF-10 no guardan ejecuciones exitosas ni manuales |
 
@@ -963,7 +995,7 @@ Decisiones de arquitectura con impacto en seguridad:
   está inactivo, ni si el rol es incorrecto.
 - WF-07 y WF-08 responden el mismo 404 para una cita inexistente y para una cita
   de otro médico: no revelan si existe.
-- El DPI se enmascara (`*********0101`) antes de devolverlo o registrarlo.
+- El DPI nunca se devuelve en las respuestas, y en la bitácora se registra enmascarado (`*********0101`).
 - El correo al paciente no transporta DPI, teléfono ni diagnóstico, y no sale
   del entorno local.
 - El reporte semanal contiene solo conteos agregados y nombres de médicos
@@ -1039,14 +1071,16 @@ ProyectoSIGAC/
 │   └── sigac-web.conf         sirve web/ y reenvia /api/ a n8n
 ├── web/
 │   ├── index.html             inicio de sesion
-│   ├── css/                   estilos.css (tres modos) y pantallas.css
+│   ├── css/                   estilos (tres modos), pantallas, visual (iconos e inicio) y panel (recepcion)
+│   ├── img/                   iconos.svg con su licencia, y la ilustracion clinica.svg
 │   ├── js/                    sesion, api, tema, pagina y login, mas uno por pantalla
 │   ├── medico/agenda.html     pantalla del medico
 │   ├── recepcion/panel.html   pantalla de recepcion
 │   └── admin/personas.html    pantalla de administracion
 ├── scripts/
 │   ├── verificar_cadena.js    validador de la bitacora encadenada
-│   └── verificar.sh           envoltorio que lo ejecuta en el contenedor
+│   ├── verificar.sh           envoltorio que lo ejecuta en el contenedor
+│   └── construir_iconos.sh    descarga los iconos Material Symbols a web/img/
 ├── pruebas/
 │   ├── package.json           scripts de Jest y umbral de cobertura
 │   ├── extraer_nodos.js       genera nodos/ a partir de workflows/
@@ -1148,11 +1182,6 @@ HTTP Request, Read/Write Files), sobre un mínimo exigido de seis.
 
 La **aplicación web** está operativa en `http://localhost:8080`, con las
 pantallas de médico, recepción y administración.
-
-Pendiente: el video de demostración y las pruebas unitarias de los nodos Code de
-WF-10. Como mejoras a futuro quedan elegir al médico por su nombre en la
-solicitud y generar el reporte semanal bajo demanda. El documento técnico detalla
-además las limitaciones conocidas.
 
 ---
 

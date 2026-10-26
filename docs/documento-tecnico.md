@@ -101,7 +101,7 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 - Consultas de solo lectura para la aplicación web: la agenda del médico, las citas del día, la lista de espera y la lista de personas, cada una restringida a un rol.
 - Reporte semanal de indicadores en formato PDF, enviado al administrador.
 - Bitácora de auditoría y registro centralizado de errores.
-- Aplicación web con una pantalla por rol, servida por un contenedor propio, con tres modos de color.
+- Aplicación web con una pantalla por rol, servida por un contenedor propio, con tres modos de color e íconos.
 
 ### 4.2 Excluido explícitamente del alcance
 
@@ -657,9 +657,9 @@ La aplicación web es un conjunto de páginas HTML, CSS y JavaScript sin framewo
 
 | Pantalla | Rol | Qué permite | Flujos que usa |
 |---|---|---|---|
-| Inicio | todos | Iniciar sesión con el token; la web consulta quién es y abre su pantalla | WF-10 |
+| Inicio | todos | Presentación del sistema con su ilustración y su eslogan; inicio de sesión con el token, y la web abre la pantalla del rol | WF-10 |
 | Mi agenda | medico | Ver sus citas por fecha; en un panel lateral, consultar el historial, escribir la nota y marcar la cita como atendida o ausente | WF-10, WF-08, WF-07, WF-05 |
-| Recepción | recepcion | Citas del día de todos los médicos, con cancelación; registro de solicitudes; lista de espera | WF-10, WF-04, WF-01 |
+| Recepción | recepcion | Barra lateral con cuatro secciones: panel del día, nueva solicitud, citas y lista de espera | WF-10, WF-04, WF-01 |
 | Personas | admin | Médicos, recepcionistas y pacientes con su estado; alta, desactivación, baja y reactivación | WF-10, WF-09 |
 
 **El token.** Se guarda en `sessionStorage` mientras la pestaña está abierta y se borra al cerrarla o al pulsar **Cerrar sesión**. Si el administrador desactiva a una persona con la web abierta, su siguiente acción recibe 401 y la web la devuelve a la pantalla de inicio. El token de una persona nueva o reactivada se muestra una sola vez, en una caja destacada, con los botones **Copiar** y **Ya lo entregué**.
@@ -669,6 +669,21 @@ La aplicación web es un conjunto de páginas HTML, CSS y JavaScript sin framewo
 **Lecturas solo a demanda.** El historial clínico se pide únicamente cuando el médico pulsa **Ver historial**, y se vuelve a cargar tras guardar una nota solo si ya estaba abierto. Cada consulta del historial queda en la bitácora, y la web no debe generar lecturas que el médico no pidió.
 
 **Diseño para jornadas largas.** La recepción pasa la jornada completa frente a la pantalla. La web ofrece tres modos de color —claro, intermedio y oscuro—, recuerda el elegido y, la primera vez, usa el del sistema operativo. Ningún modo usa blanco ni negro puros, porque el contraste extremo cansa la vista. El color fuerte se reserva para el estado de cada cita, con el mismo significado en los tres modos: verde para confirmada, azul petróleo para atendida, ámbar para ausente, rojo apagado para cancelada y gris para inactivo o baja. Las horas usan números de ancho fijo, para que se lean alineadas en columna.
+
+**La pantalla de recepción** sigue los mockups de Figma del proyecto. Una barra lateral reúne cuatro secciones:
+
+| Sección | Contenido |
+|---|---|
+| Panel | Cuatro tarjetas con el resumen del día (citas, confirmadas, en lista de espera y canceladas), la agenda de hoy con un buscador, los tres primeros en espera con su prioridad, y la actividad de la sesión |
+| Nueva solicitud | El formulario con los datos del paciente y de la consulta, el tipo de consulta en tres botones, un contador del motivo, las preferencias en una sección plegable y la lista de reglas que se aplican |
+| Citas | Un rango de hasta 31 días, filtros por estado, médico y tipo, paginación de doce en doce, y la cancelación de las citas confirmadas |
+| Lista de espera | La lista completa, en el orden en que se repartirían los cupos liberados |
+
+La prioridad se muestra traducida: 1 y 2 como **Alta**, 3 como **Media**, y 4 y 5 como **Baja**, con el mismo orden que usa WF-04. El rango de citas se arma pidiendo a WF-10 cada día del rango, porque la consulta responde un día a la vez; por eso se limita a 31 días. La **actividad de la sesión** vive solo en la memoria de la página y se borra al recargar: no se guarda en ningún lugar.
+
+**Validación por campo, como ayuda.** El formulario de solicitud revisa cada campo antes de enviar y marca en rojo el que falla, con su mensaje debajo. Es una ayuda para quien escribe, no un control de seguridad: WF-01 sigue validando cada solicitud, y sus rechazos se muestran arriba del formulario.
+
+**Íconos e ilustración.** Los íconos son Material Symbols de Google, con licencia Apache 2.0. No se cargan desde los servidores de Google: el script `scripts/construir_iconos.sh` los descarga del repositorio oficial y los reúne en un solo archivo, `web/img/iconos.svg`, junto a su licencia. Así la política de seguridad de contenido sigue cerrada a servidores externos, la web funciona sin Internet y ningún tercero sabe cuándo se usa. La ilustración de la pantalla de inicio, `web/img/clinica.svg`, es original del proyecto y usa la paleta de la web. Los íconos son decorativos y se ocultan a los lectores de pantalla: el texto de cada botón ya dice lo que hace.
 
 ## 8. Ciberseguridad
 
@@ -683,7 +698,7 @@ La guía establece la ciberseguridad como eje obligatorio y la rúbrica técnica
 | 3 | Cifrado en reposo con AES-256-GCM de DPI, teléfono, diagnóstico e indicaciones. La clave reside en variable de entorno. | Valores `iv:texto:etiqueta` en la base; descifrado en WF-08 |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256, que registra altas, cambios, lecturas y operaciones de administración. | El verificador detecta una cadena alterada |
 | 4b | Auditoría de acceso: cada consulta del historial clínico queda registrada, incluso si no devuelve notas, y también cada inicio de sesión. | Registros `select` en la bitácora |
-| 5 | Validación estricta de entradas, contraste contra el catálogo de médicos activos y enmascaramiento del DPI en respuestas y registros. | 400 con el detalle de cada campo |
+| 5 | Validación estricta de entradas, contraste contra el catálogo de médicos activos y enmascaramiento del DPI en la bitácora; el DPI no se devuelve en ninguna respuesta. | 400 con el detalle de cada campo |
 | 6 | Consultas parametrizadas en todos los nodos Postgres que reciben valores, con formato de lista en los que reciben texto libre. | Apellido con apóstrofe y textos con comas guardados íntegros |
 | 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08, WF-09 y WF-10 no guardan ejecuciones exitosas ni manuales. | La pestaña Executions queda vacía tras una consulta |
 
@@ -728,7 +743,7 @@ La sección 12.5 documenta cómo se demostró que la interpolación era explotab
 - **Mensajes de rechazo genéricos.** La respuesta 401 no distingue entre token ausente, inexistente o desactivado, para no facilitar la enumeración de credenciales válidas.
 - **El mismo 404 para una cita inexistente y una cita ajena.** WF-07 y WF-08 no revelan si una cita existe cuando pertenece a otro médico.
 - **Publicación restringida a `127.0.0.1`.** Ningún servicio queda alcanzable desde otros equipos de la red, y Gotenberg ni siquiera publica puerto.
-- **Enmascaramiento del DPI** antes de devolverlo en la respuesta o registrarlo en la bitácora, con el formato `*********0101`.
+- **El DPI no se devuelve en ninguna respuesta.** Se guarda cifrado, y en la bitácora se registra enmascarado, con el formato `*********0101`.
 - **Minimización de datos en el correo:** las notificaciones al paciente no transportan datos identificativos ni clínicos, y no salen del entorno local. Ningún flujo envía información clínica por correo.
 - **La web no ejecuta código ajeno.** Nginx envía una política de seguridad de contenido que solo permite JavaScript y CSS servidos por la propia web, y ninguna página tiene código dentro del HTML. Todo el texto que llega del servidor se escribe con `textContent`, nunca como HTML.
 - **Cabeceras de seguridad en la web:** `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Content-Security-Policy` en cada respuesta.
@@ -1136,6 +1151,9 @@ Las ocho citas del caso de `citas` corresponden a un miércoles: dos médicos de
 | Administración: alta de una recepcionista con coma en el nombre | 201, token mostrado una vez; nombre íntegro |
 | Administración: baja de esa recepcionista | Baja definitiva, sin botones, token revocado |
 | Tres modos de color, recordados al recargar | Correcto |
+| Recepción: panel del día, con las cuatro tarjetas y la lista de espera resumida | Conteos coincidentes con las consultas de WF-10 |
+| Recepción: citas en un rango de quince días, con filtros y paginación | Las doce citas del rango, con sus estados y la cancelación solo en las confirmadas |
+| Recepción: solicitud con datos inválidos | Cada campo marcado en rojo con su mensaje, sin enviar nada a WF-01 |
 | Bitácora tras todas las pruebas de la web | Cadena íntegra, 109 registros |
 
 ---
@@ -1411,6 +1429,10 @@ Las decisiones siguientes no surgen de un requisito escrito sino del análisis d
 | **Nginx como intermediario** | La página y la API comparten origen, y solo pasan peticiones `POST` hacia los webhooks. |
 | **El token en `sessionStorage`** | Se borra al cerrar la pestaña. `localStorage` lo conservaría en disco, y se usa solo para el modo de color, que no es un dato sensible. |
 | **Tres modos de color** | Una persona elige el que menos la cansa; el color fuerte se reserva para el estado de cada cita. |
+| **Íconos servidos desde la propia web** | Cargarlos desde Google obligaría a abrir la política de seguridad y avisaría a un tercero cada vez que alguien abre la web. |
+| **La validación de la página solo ayuda** | La única validación que cuenta es la de WF-01: la de la página puede saltarse, la del flujo no. |
+| **La actividad de la sesión, solo en memoria** | Mostrar la bitácora a recepción exigiría una consulta nueva; lo que la persona hizo en la sesión se conoce sin preguntar al servidor y no se guarda en ningún lugar. |
+| **Las citas por rango, hasta 31 días** | WF-10 responde un día por consulta; el límite evita cientos de peticiones por un rango demasiado largo. |
 | **Solo se audita el inicio de sesión** | El historial clínico ya se audita en WF-08. La agenda, las citas y las listas no contienen información clínica, solo horarios, nombres y estados. |
 
 ---
@@ -1444,13 +1466,15 @@ ProyectoSIGAC/
 ├── web/                          Aplicación web: inicio y una pantalla por rol
 │   ├── index.html
 │   ├── css/
+│   ├── img/                      Íconos con su licencia e ilustración de inicio
 │   ├── js/
 │   ├── medico/
 │   ├── recepcion/
 │   └── admin/
 ├── scripts/
 │   ├── verificar_cadena.js       Validador de la bitácora encadenada
-│   └── verificar.sh
+│   ├── verificar.sh
+│   └── construir_iconos.sh       Descarga los íconos a web/img/
 ├── pruebas/                      Pruebas unitarias con Jest
 │   ├── nodos/                    Un archivo por nodo Code, generado desde workflows/
 │   └── tests/                    Un archivo de prueba por nodo
@@ -1532,10 +1556,15 @@ Las consultas de recepción ya existen en WF-10. Las operaciones que faltan se p
 
 La consulta de huecos puede reutilizar la lógica de `Busca cupo`, que ya devuelve las horas ocupadas por franja.
 
-### 16.4 Mejoras a futuro de la aplicación web
+### 16.4 Mejoras a futuro
 
 | Mejora | Qué resolvería | Cómo se haría |
 |---|---|---|
+| Usuario y contraseña en lugar del token | Hoy cada persona inicia sesión con un token largo que no puede memorizar, y si lo pierde, solo el administrador puede darle uno nuevo | Cada médico, recepcionista y administrador tendría usuario y contraseña. La contraseña se guardaría con un algoritmo de derivación lento, como Argon2 o bcrypt, nunca en claro. Al iniciar sesión, el sistema entregaría un token de sesión corto, con caducidad, en lugar del token permanente |
+| Recuperación y cambio de contraseña | Que una persona que olvida su contraseña la recupere sin depender del administrador | Un enlace de un solo uso enviado al correo de la persona, que caduca en pocos minutos; el cambio de contraseña desde la propia web; el bloqueo temporal tras varios intentos fallidos. Cada cambio, recuperación y bloqueo quedaría en la bitácora |
+| Cierre de sesión por inactividad | Una computadora de recepción que se queda abierta sigue con la sesión iniciada mientras la pestaña esté abierta | Cerrar la sesión tras un tiempo sin actividad, avisando unos segundos antes |
+| Copias de seguridad automáticas | Hoy la base solo existe en su volumen de Docker | Un respaldo diario con `pg_dump`, cifrado y guardado fuera del volumen, con una prueba periódica de restauración |
+| Recordatorio de la cita | El paciente solo recibe el correo de confirmación | Un flujo programado que, el día anterior, envíe un recordatorio a cada paciente con cita, con la misma minimización de datos que la confirmación |
 | Elegir al médico por su nombre | La limitación de la sección 16.1: el número de médico y las especialidades escritas en la página | Una consulta `medicos` en WF-10, para recepción, que devuelva los médicos activos con su especialidad y alimente un desplegable |
 | Reporte semanal bajo demanda | El reporte solo se genera los domingos | Una consulta `reporte` en WF-10, solo para el administrador, que ejecute WF-06 mediante un segundo disparador, sin duplicar su lógica |
 
@@ -1551,7 +1580,7 @@ La rúbrica de la sección 11 de la guía asigna quince puntos en modalidad indi
 | Buen diseño técnico | 3 | Arquitectura en cinco contenedores con publicación restringida y una web que solo llega a n8n a través de Nginx, modelo de doce tablas con restricciones declaradas en la base, operaciones atómicas en una sola sentencia y manejo de errores centralizado |
 | Ciberseguridad | 3 | Diez capas que cubren validación, control de acceso con identidad por persona, cifrado y auditoría de lectura, con los incidentes del desarrollo documentados y remediados |
 | Manejo de errores y de los datos | 2 | WF-00, tabla `log_errores`, bitácora encadenada por hash, baja lógica sin pérdida de historial y consistencia verificada tras operaciones repetidas |
-| Documentación clara | 2 | Este documento, con veinticinco defectos y treinta y una decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
+| Documentación clara | 2 | Este documento, con veinticinco defectos y treinta y cinco decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
 | Evidencia y que se pueda reproducir | 1 | Casos de prueba por fase con sus comandos; 857 pruebas unitarias que se ejecutan sin levantar el sistema; el entorno completo se levanta con un solo comando |
 | **TOTAL** | **15** | |
 
