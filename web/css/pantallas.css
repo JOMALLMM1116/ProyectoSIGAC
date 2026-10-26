@@ -272,3 +272,33 @@
   padding-top: 20px;
   border-top: 1px solid var(--borde);
 }
+
+/* --- Con el panel abierto: más ancho y sin textos partidos --- */
+
+.contenido:has(.panel-lateral:not(.oculto)) {
+  max-width: 1440px;
+}
+
+.diseno-con-panel:has(.panel-lateral:not(.oculto)) .tabla td,
+.diseno-con-panel:has(.panel-lateral:not(.oculto)) .tabla th {
+  white-space: nowrap;
+}
+
+/* La columna «Consulta» se oculta mientras el panel está abierto:
+   el tipo de consulta ya se ve dentro del panel con el motivo. */
+.diseno-con-panel:has(.panel-lateral:not(.oculto)) .tabla th:nth-child(3),
+.diseno-con-panel:has(.panel-lateral:not(.oculto)) .tabla td:nth-child(3) {
+  display: none;
+}
+
+/* --- Buscador con el mismo estilo que los demás campos --- */
+
+.controles input[type="search"] {
+  width: 260px;
+  padding: 9px 12px;
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+}

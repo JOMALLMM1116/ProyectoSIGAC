@@ -31,6 +31,12 @@
   let citas = [];
   let citaAbierta = null;
 
+  // Si el médico ya pidió el historial de la cita abierta. Solo entonces
+  // se vuelve a cargar después de guardar una nota: cada consulta del
+  // historial queda en la bitácora, y no deben registrarse lecturas que
+  // el médico no pidió.
+  let historialAbierto = false;
+
   // --- Agenda ---
 
   async function cargar() {
@@ -103,6 +109,7 @@
     }
     PAGINA.ocultarMensaje(panelMensaje);
     listaHistorial.replaceChildren();
+    historialAbierto = false;
     formularioNota.reset();
     pintarPanel(cita);
     panel.classList.remove('oculto');
@@ -110,12 +117,14 @@
 
   function cerrarPanel() {
     citaAbierta = null;
+    historialAbierto = false;
     panel.classList.add('oculto');
   }
 
   // --- Historial (WF-08) ---
 
   async function verHistorial() {
+    historialAbierto = true;
     listaHistorial.replaceChildren(PAGINA.crear('p', 'texto-suave', 'Cargando historial…'));
     const respuesta = await API.llamar('historial', { id_cita: citaAbierta.id_cita });
 
@@ -165,6 +174,9 @@
       PAGINA.mostrarMensaje(panelMensaje, 'exito', 'Nota guardada.');
       formularioNota.reset();
       await cargar();
+      if (historialAbierto) {
+        await verHistorial();
+      }
     } else {
       PAGINA.mostrarMensaje(panelMensaje, 'error', PAGINA.textoError(respuesta));
     }
@@ -199,4 +211,3 @@
 
   cargar();
 })();
-
