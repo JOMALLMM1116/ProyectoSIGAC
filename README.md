@@ -23,6 +23,9 @@ suspensión y la baja de pacientes, médicos y recepcionistas sin borrar su
 historial, y un flujo de consultas entrega a la aplicación web la agenda del
 médico, las citas del día, la lista de espera y la lista de personas.
 
+La **aplicación web** reúne todo en tres pantallas, una por rol: la agenda del
+médico, el panel de recepción y la administración de personas.
+
 ---
 
 ## 2. Arquitectura
@@ -33,11 +36,18 @@ médico, las citas del día, la lista de espera y la lista de personas.
 | `sigac-postgres` | `postgres:16-alpine` | Persistencia | 127.0.0.1:5433 |
 | `sigac-mailhog` | `mailhog/mailhog:latest` | SMTP local | 127.0.0.1:8025 |
 | `sigac-gotenberg` | `gotenberg/gotenberg:8` | Conversión HTML a PDF | sin publicar |
+| `sigac-web` | `nginx:alpine` | Aplicación web y reenvío de `/api/` a n8n | 127.0.0.1:8080 |
 
 Los puertos publicados lo son **únicamente en `127.0.0.1`**: no son alcanzables
 desde la red local. Gotenberg no publica ninguno: solo lo alcanza n8n por la red
 interna de Docker, donde cada servicio se resuelve por su nombre (`postgres`,
-`mailhog`, `gotenberg`).
+`mailhog`, `gotenberg`, `n8n`).
+
+La aplicación web nunca habla directamente con n8n ni con la base: el navegador
+pide `/api/consulta` a `sigac-web`, y Nginx lo reenvía a `n8n:5678/webhook/consulta`
+por la red interna. Así la web pasa por los mismos controles que cualquier
+petición (token, rol, validación y bitácora), y no hay peticiones entre orígenes
+distintos.
 
 ### Correo saliente
 
@@ -69,6 +79,7 @@ anterior como evidencia de la evolución del diseño.
 - Una cuenta de Gmail con verificación en dos pasos, para generar una contraseña
   de aplicación
 - Node.js 18 o superior y npm, solo para ejecutar las pruebas unitarias
+- Un navegador actual (Edge, Chrome o Firefox) para la aplicación web
 - Opcional: pgAdmin o DBeaver para inspeccionar la base
 
 ---
@@ -152,6 +163,8 @@ git checkout sql/02_datos_prueba.sql
 docker compose up -d
 docker compose ps
 ```
+
+Deben quedar cinco contenedores en `Up`.
 
 Los scripts de `sql/` se ejecutan automáticamente en el **primer** arranque de
 PostgreSQL, en orden alfabético. Si la base ya existe, no se vuelven a ejecutar.
@@ -241,6 +254,36 @@ Para cada flujo importado:
 > publicada, y el endpoint de producción responde con la publicada. Todo cambio
 > requiere publicar de nuevo.
 
+### 4.7 Abrir la aplicación web
+
+Con los flujos publicados, la aplicación web está en:
+
+```
+http://localhost:8080
+```
+
+Se inicia sesión con el token de la persona: el de un médico, el de recepción o
+el del administrador. La web consulta quién es y abre la pantalla de su rol:
+
+| Rol | Pantalla | Qué permite |
+|---|---|---|
+| medico | Mi agenda | Ver sus citas por fecha; en un panel lateral, consultar el historial clínico, escribir la nota y marcar la cita como atendida o ausente |
+| recepcion | Recepción | Ver las citas del día de todos los médicos y cancelarlas; registrar solicitudes; consultar la lista de espera |
+| admin | Personas | Ver médicos, recepcionistas y pacientes; agregarlos, desactivarlos, darlos de baja y reactivarlos |
+
+- El token se guarda solo mientras la pestaña está abierta (`sessionStorage`):
+  al cerrarla hay que volver a iniciar sesión. **Cerrar sesión** lo borra.
+- Si el administrador desactiva a alguien con la web abierta, su siguiente acción
+  lo devuelve a la pantalla de inicio.
+- El token de una persona nueva o reactivada aparece **una sola vez**, en una caja
+  destacada con los botones **Copiar** y **Ya lo entregué**.
+- La web tiene tres modos de color, **Claro**, **Intermedio** y **Oscuro**, y
+  recuerda el elegido. La primera vez usa el del sistema operativo.
+
+> Para copiar un token del `.env` sin mostrarlo en la terminal, ábrelo en el
+> editor, selecciona el valor con doble clic y cópialo. Desde WSL, `clip.exe`
+> puede no llegar al portapapeles de Windows.
+
 ---
 
 ## 5. Uso
@@ -257,7 +300,7 @@ Para cada flujo importado:
 | `POST /webhook/admin` | WF-09 | admin | Administrar pacientes, médicos y recepcionistas |
 | `POST /webhook/consulta` | WF-10 | según la consulta | Consultas de solo lectura para la aplicación web |
 
-Todos en `http://localhost:5678`.
+Todos en `http://localhost:5678`. La aplicación web llega a los mismos endpoints por `http://localhost:8080/api/...`, a través de Nginx.
 
 Los flujos WF-02, WF-03 y WF-06 no tienen endpoint: se disparan por temporizador.
 Los dos primeros cada cinco minutos, el reporte los domingos a las 23:00. La
@@ -926,6 +969,22 @@ Decisiones de arquitectura con impacto en seguridad:
 - El reporte semanal contiene solo conteos agregados y nombres de médicos
   activos, lo que permite entregarlo por correo externo.
 
+Decisiones de la aplicación web:
+
+- **Nginx solo reenvía `/webhook/`** y solo peticiones `POST`: el editor de n8n y
+  las URLs de prueba no son alcanzables desde la web, y cualquier otro método
+  recibe 403 sin llegar a n8n.
+- **Política de seguridad de contenido**: el navegador solo ejecuta JavaScript y
+  CSS servidos por la propia web. Ninguna página tiene código dentro del HTML.
+- **Todo el texto del servidor se escribe con `textContent`**, nunca como HTML:
+  un nombre con caracteres especiales nunca se interpreta como código.
+- **El token vive en `sessionStorage`**, no en `localStorage` ni en el código: se
+  borra al cerrar la pestaña.
+- **Cabeceras de seguridad** en cada respuesta: `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy` y `Content-Security-Policy`.
+- El historial clínico solo se pide cuando el médico pulsa **Ver historial**:
+  cada consulta queda en la bitácora, y la web no genera lecturas que nadie pidió.
+
 Comprobación del verificador de la bitácora en cualquier momento:
 
 ```bash
@@ -976,6 +1035,15 @@ ProyectoSIGAC/
 │   ├── WF-08_historial_clinico.json  consulta de historial clinico
 │   ├── WF-09_administracion.json     administracion de personas
 │   └── WF-10_consultas.json          consultas para la aplicacion web
+├── nginx/
+│   └── sigac-web.conf         sirve web/ y reenvia /api/ a n8n
+├── web/
+│   ├── index.html             inicio de sesion
+│   ├── css/                   estilos.css (tres modos) y pantallas.css
+│   ├── js/                    sesion, api, tema, pagina y login, mas uno por pantalla
+│   ├── medico/agenda.html     pantalla del medico
+│   ├── recepcion/panel.html   pantalla de recepcion
+│   └── admin/personas.html    pantalla de administracion
 ├── scripts/
 │   ├── verificar_cadena.js    validador de la bitacora encadenada
 │   └── verificar.sh           envoltorio que lo ejecuta en el contenedor
@@ -1078,10 +1146,13 @@ Tipos de nodo distintos utilizados: **12** (Webhook, Schedule Trigger, Error
 Trigger, If, Switch, Merge, Code, Postgres, Send Email, Respond to Webhook,
 HTTP Request, Read/Write Files), sobre un mínimo exigido de seis.
 
-Pendiente: el video de demostración, la aplicación web para recepción y médicos
-(WF-10 ya provee sus consultas) y las pruebas unitarias de los nodos Code de
-WF-10. El documento técnico detalla además las
-limitaciones conocidas y el trabajo futuro.
+La **aplicación web** está operativa en `http://localhost:8080`, con las
+pantallas de médico, recepción y administración.
+
+Pendiente: el video de demostración y las pruebas unitarias de los nodos Code de
+WF-10. Como mejoras a futuro quedan elegir al médico por su nombre en la
+solicitud y generar el reporte semanal bajo demanda. El documento técnico detalla
+además las limitaciones conocidas.
 
 ---
 

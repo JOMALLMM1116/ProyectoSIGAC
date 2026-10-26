@@ -10,6 +10,7 @@ actor "Administrador" as Admin
 node "Equipo anfitrión — Windows con WSL 2" {
 
   frame "Interfaz de bucle local 127.0.0.1" as Loopback {
+    () ":8080" as P8080
     () ":5678" as P5678
     () ":5433" as P5433
     () ":8025" as P8025
@@ -17,6 +18,7 @@ node "Equipo anfitrión — Windows con WSL 2" {
 
   node "Docker — red interna del proyecto" as Red {
 
+    component "sigac-web\nNginx\naplicación web" as WEB
     component "sigac-n8n\nn8n 2.33.6\nWF-00 a WF-10" as N8N
     component "sigac-postgres\nPostgreSQL 16\n12 tablas" as PG
     component "sigac-mailhog\nMailHog" as MH
@@ -26,20 +28,26 @@ node "Equipo anfitrión — Windows con WSL 2" {
     database "Volumen nombrado\nsigac_n8n_data" as VOLN8N
   }
 
+  folder "./web y ./nginx\n(bind mount, solo lectura)" as WEBF
   folder "./reportes\n(bind mount)" as REP
 }
 
 cloud "Gmail\nsmtp.gmail.com" as GMAIL
 
-Recepcion --> P5678 : HTTP POST\n/webhook/cita\n/webhook/cancelar\n/webhook/consulta
-Medico --> P5678 : HTTP POST\n/webhook/cerrar\n/webhook/nota\n/webhook/historial\n/webhook/consulta
-Admin --> P5678 : HTTP POST\n/webhook/admin\n/webhook/consulta
+Recepcion --> P8080 : navegador\nRecepción
+Medico --> P8080 : navegador\nMi agenda
+Admin --> P8080 : navegador\nPersonas
+Admin --> P5678 : editor de n8n\ny pruebas con curl
 Admin --> P8025 : consulta la bandeja
 Admin --> P5433 : pgAdmin
 
+P8080 --> WEB
 P5678 --> N8N
 P8025 --> MH
 P5433 --> PG
+
+WEB --> WEBF : páginas y\nconfiguración
+WEB --> N8N : POST /api/... → /webhook/...\nhost n8n : 5678\ncon el token del usuario
 
 N8N --> PG : SQL\nhost postgres : 5432
 N8N --> MH : SMTP\nhost mailhog : 1025\ncorreos al paciente
@@ -52,10 +60,17 @@ PG --> VOL : persiste
 N8N --> VOLN8N : flujos y credenciales\ncifradas
 
 note bottom of Loopback
-  Los tres puertos se publican únicamente en 127.0.0.1.
+  Los cuatro puertos se publican únicamente en 127.0.0.1.
   Ningún servicio queda accesible desde otros equipos
   de la red local. Gotenberg no publica ningún puerto:
   solo lo alcanza n8n por la red interna.
+end note
+
+note right of WEB
+  La web nunca toca la base: todo pasa por los
+  webhooks, con token, rol, validación y bitácora.
+  Nginx solo reenvía POST hacia /webhook/ y envía
+  una política que bloquea código ajeno.
 end note
 
 note right of PG
@@ -78,3 +93,4 @@ note right of GMAIL
   ningún dato de paciente sale del equipo.
 end note
 @enduml
+
