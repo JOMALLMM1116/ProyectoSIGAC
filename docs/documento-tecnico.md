@@ -47,7 +47,7 @@ El efecto acumulado es doble: pérdida de eficiencia operativa por reprocesos y 
 
 ### 2.1 Solución propuesta
 
-SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atención: solicitud → autenticación → autorización → validación → registro → clasificación → asignación → notificación → expediente → nota clínica → consulta del historial → cierre. Un flujo de administración gestiona además el alta, la suspensión y la baja de pacientes, médicos y recepcionistas sin borrar su historial. El procesamiento y los datos residen íntegramente en contenedores Docker locales, y la ciberseguridad se incorpora como eje transversal del diseño y no como un agregado posterior.
+SIGAC automatiza mediante flujos de trabajo de n8n el ciclo completo de atención: solicitud → autenticación → autorización → validación → registro → clasificación → asignación → notificación → expediente → nota clínica → consulta del historial → cierre. Un flujo de administración gestiona además el alta, la suspensión y la baja de pacientes, médicos y recepcionistas sin borrar su historial, y un flujo de consultas entrega a la aplicación web la información que sus pantallas necesitan mostrar. El procesamiento y los datos residen íntegramente en contenedores Docker locales, y la ciberseguridad se incorpora como eje transversal del diseño y no como un agregado posterior.
 
 ### 2.2 Correspondencia entre el problema y la solución
 
@@ -71,7 +71,7 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 | # | Objetivo específico (SMART) | Verificación | Estado |
 |:-:|---|---|:-:|
 | 1 | Montar un entorno local reproducible con n8n, PostgreSQL, MailHog y Gotenberg orquestados mediante Docker Compose. | El comando `docker compose up -d` levanta el sistema completo | Cumplido |
-| 2 | Implementar los flujos de trabajo que cubran ingesta, procesamiento, salida, reasignación, cierre, reportería, información clínica, administración de personas y manejo de errores. | Exportación JSON de los flujos en el repositorio | Cumplido — diez flujos |
+| 2 | Implementar los flujos de trabajo que cubran ingesta, procesamiento, salida, reasignación, cierre, reportería, información clínica, administración de personas, consultas para la aplicación web y manejo de errores. | Exportación JSON de los flujos en el repositorio | Cumplido — once flujos |
 | 3 | Diseñar un modelo de datos normalizado que soporte los datos operativos, la información clínica, la auditoría y el registro de errores. | Script `01_schema.sql` ejecutado sin errores | Cumplido — doce tablas |
 | 4 | Implementar controles de ciberseguridad sobre los datos sensibles gestionados por el sistema. | Casos de prueba de la sección 11 | Cumplido — diez capas |
 | 5 | Documentar y evidenciar casos de prueba con entradas válidas e inválidas. | Resultados registrados en la sección 11 de este documento | Cumplido |
@@ -79,7 +79,7 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 | 7 | Completar el ciclo de vida de la cita mediante un flujo de cierre. | Flujo WF-05 exportado y caso 10 superado | Cumplido |
 | 8 | Registrar y consultar información clínica cifrada, con la firma del médico que la escribe y la auditoría de cada lectura. | Flujos WF-07 y WF-08 y sus casos de prueba | Cumplido |
 | 9 | Administrar el ciclo de vida de pacientes, médicos y recepcionistas sin borrar su historial, reasignando las citas del médico que deja de atender. | Flujo WF-09 y sus casos de prueba | Cumplido |
-| 10 | Verificar la lógica de los nodos Code mediante pruebas unitarias, con simulación de sus dependencias, y medir su cobertura. | Documento de pruebas e informe de cobertura | Cumplido — 857 pruebas |
+| 10 | Verificar la lógica de los nodos Code mediante pruebas unitarias, con simulación de sus dependencias, y medir su cobertura. | Documento de pruebas e informe de cobertura | Cumplido en WF-00 a WF-09 — 857 pruebas; WF-10 pendiente |
 
 ---
 
@@ -97,6 +97,7 @@ Diseñar e implementar un sistema automatizado de gestión de citas y expediente
 - Reasignación automática de cupos liberados por cancelación.
 - Cierre de la cita por el médico, con resultado atendida o ausente.
 - Administración de pacientes, médicos y recepcionistas: alta, desactivación, reactivación y baja definitiva, con reasignación de las citas del médico que deja de atender.
+- Consultas de solo lectura para la aplicación web: la agenda del médico, las citas del día, la lista de espera y la lista de personas, cada una restringida a un rol.
 - Reporte semanal de indicadores en formato PDF, enviado al administrador.
 - Bitácora de auditoría y registro centralizado de errores.
 
@@ -110,7 +111,6 @@ La delimitación negativa forma parte del diseño y se declara para evitar ambig
 - No se contempla despliegue en producción ni alta disponibilidad.
 - El paciente no accede al sistema. Sus solicitudes las registra recepción, y no existe un token de paciente.
 - La derivación entre especialidades no la gestiona el sistema: si un médico deriva a un paciente, recepción registra una solicitud nueva.
-- No se implementan, por ahora, consultas de citas, pacientes ni lista de espera para recepción. Se planifican como WF-13 (sección 16.3).
 
 ### 4.3 Correo hacia un proveedor externo
 
@@ -146,11 +146,11 @@ Gotenberg no publica puerto alguno porque solo lo consume n8n desde la red inter
 
 ```
   Cliente HTTP (curl / Insomnia)
-        │  POST /webhook/{cita, cancelar, cerrar, nota, historial, admin}
+        │  POST /webhook/{cita, cancelar, cerrar, nota, historial, admin, consulta}
         │  + token en la cabecera x-sigac-token
         ▼
   ┌──────────────────────────────────────────────┐
-  │  sigac-n8n  :5678   (WF-00 … WF-09)          │
+  │  sigac-n8n  :5678   (WF-00 … WF-10)          │
   └──┬───────────┬───────────┬────────────┬──────┘
      │ SQL       │ SMTP      │ HTTP       │ SMTP
      ▼           ▼           ▼            ▼
@@ -171,6 +171,7 @@ Gotenberg no publica puerto alguno porque solo lo consume n8n desde la red inter
 | `http://localhost:5678/webhook/nota` | Registro de nota clínica (WF-07) | medico |
 | `http://localhost:5678/webhook/historial` | Consulta de historial clínico (WF-08) | medico |
 | `http://localhost:5678/webhook/admin` | Administración de personas (WF-09) | admin |
+| `http://localhost:5678/webhook/consulta` | Consultas para la aplicación web (WF-10) | según la consulta |
 | `http://localhost:8025` | Bandeja de MailHog | — |
 | `localhost:5433` | PostgreSQL desde herramientas del anfitrión | — |
 
@@ -306,7 +307,7 @@ La base contiene además un sexto médico, de Pediatría, creado para probar la 
 
 ## 7. Flujos de trabajo (workflows)
 
-La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC tiene diez flujos implementados y publicados.
+La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC tiene once flujos implementados y publicados.
 
 | Flujo | Propósito | Nodos | Disparo | Estado |
 |---|---|:-:|---|:-:|
@@ -320,6 +321,7 @@ La guía exige un mínimo de tres flujos: ingesta, procesamiento y salida. SIGAC
 | **WF-07** | Registro de nota clínica | 18 | `POST /webhook/nota` | Publicado |
 | **WF-08** | Consulta de historial clínico | 18 | `POST /webhook/historial` | Publicado |
 | **WF-09** | Administración de personas | 38 | `POST /webhook/admin` | Publicado |
+| **WF-10** | Consultas para la aplicación web | 28 | `POST /webhook/consulta` | Publicado |
 
 Todos los flujos tienen a WF-00 como *Error Workflow*. Todos los que responden por webhook usan el mismo formato de respuesta: `codigo`, `estado` y `mensaje`, más los datos propios de cada operación.
 
@@ -562,6 +564,51 @@ El `id` se acepta solo como un entero positivo (sección 12.24). Los rechazos pr
 
 De `Aplica cambio de medico` salen dos ramas independientes. Una arma la respuesta al administrador; la otra envía un correo a cada paciente afectado: «su cita sigue en pie, ahora con otro médico», o «su cita ya no está disponible; llame a la clínica». Si el médico no tenía citas, la rama de correos no recibe nada y no se ejecuta, sin dejar al administrador sin respuesta.
 
+### WF-10 · Consultas para la aplicación web
+
+Entrega a la aplicación web la información que sus pantallas necesitan mostrar. Es un solo endpoint con cinco consultas de solo lectura, cada una restringida a un rol.
+
+```
+Webhook (POST /webhook/consulta)
+  → Hash del token         Code → huella del token y consulta pedida
+  → Identifica al usuario  Postgres → rol y nombre de la persona
+  → ¿Token válido?         If  ─false→ Rechazo 401
+  → Ruta (Switch, seis salidas)
+      sesion        → Registra inicio de sesion → Sesión valida
+      agenda        → ¿Es médico? → Prepara agenda → ¿Agenda válida? → Lee agenda → Agenda lista
+      citas         → ¿Es recepción? citas → Prepara citas → ¿Citas válida? → Lee citas → Citas listas
+      lista_espera  → ¿Es recepción? espera → Lee lista de espera → Espera lista
+      personas      → ¿Es admin? → Lee personas → Personas listas
+      invalida      → Rechazo 400
+  Los cuatro «¿Es ...?», por false → Rechazo 403
+  Los dos «¿... válida?», por false → Rechazo fecha
+  → Respuesta              Respond to Webhook
+```
+
+El cuerpo lleva siempre `consulta`, y `fecha` en las dos que la admiten:
+
+| `consulta` | Rol | Devuelve | `fecha` |
+|---|---|---|---|
+| `sesion` | todos | Rol y nombre de quien llama; si es médico, su especialidad | No aplica |
+| `agenda` | medico | Las citas propias del médico en esa fecha, sin las canceladas | Opcional; sin ella, hoy |
+| `citas` | recepcion | Las citas de todos los médicos en esa fecha, canceladas incluidas | Opcional; sin ella, hoy |
+| `lista_espera` | recepcion | Las solicitudes en espera | No aplica |
+| `personas` | admin | Médicos, recepcionistas y pacientes con su estado | No aplica |
+
+**`sesion`** es la que usa la pantalla de inicio de la web para saber a qué pantallas enviar a cada persona. `Identifica al usuario` une el token con `medico` y `recepcionista` para devolver el nombre real, y solo acepta tokens activos de personas activas: un token que quedara activo por error tras desactivar a su persona tampoco pasaría. Cada inicio de sesión queda registrado en la bitácora, con el identificador del token usado y el rol, nunca el token ni su huella.
+
+**`agenda`** encuentra al médico a partir de su token, con un `join` sobre `usuario_api` por la huella: no recibe el médico en la petición, de modo que nadie puede pedir la agenda de otro. Cada cita incluye `tiene_nota`, que dice si ya tiene nota clínica sin traer su contenido.
+
+**`citas`** devuelve las del día de toda la clínica, con el médico, su especialidad y si el paciente ya fue notificado. Incluye las canceladas, porque la recepción necesita verlas para atender a quien llame preguntando por ellas.
+
+**`lista_espera`** aplica el mismo filtro y el mismo orden que `Siguiente en espera` de WF-04 —prioridad ascendente y, a igual prioridad, antigüedad—, agrupado por fecha preferida. El primero de cada fecha es exactamente quien recibiría el siguiente cupo liberado de ese día.
+
+**`personas`** calcula el estado de cada persona con las mismas dos columnas que usa WF-09: con fecha en `baja_en` es baja; si no, `activo` decide entre activo e inactivo.
+
+**La fecha** es opcional en `agenda` y `citas`. Sin ella, se usa el día de hoy en hora de Guatemala, calculado con Luxon y no con el reloj del servidor. Cuando viene, se exige el formato `AAAA-MM-DD` y que la fecha exista en el calendario, con la misma comprobación que `fechaReal` en WF-01.
+
+**Minimización.** Ninguna consulta devuelve DPI, teléfono, correo ni identificadores de token; el motivo de la consulta solo lo ve el médico de esa cita. Los únicos identificadores que salen son `id_cita` e `id` de persona, que son los que la web necesita para llamar a los demás endpoints. Ninguna consulta descifra datos, y salvo el inicio de sesión ninguna escribe en la base.
+
 ### 7.1 Inventario de tipos de nodo utilizados
 
 La guía exige un mínimo de seis tipos de nodo distintos. La implementación emplea doce.
@@ -598,14 +645,14 @@ La guía establece la ciberseguridad como eje obligatorio y la rúbrica técnica
 |:-:|---|---|
 | 1 | Gestión de secretos: todas las credenciales residen en variables de entorno o en el almacén cifrado de n8n. El archivo `.env` se excluye del control de versiones y se versiona únicamente `.env.example` con marcadores. | El repositorio no contiene `.env` |
 | 2 | Autenticación por token: cada petición transporta un token en la cabecera HTTP, cuyo SHA-256 se compara contra el hash almacenado en `usuario_api`. | 401 en todos los flujos con webhook |
-| 2b | Autorización por rol: `recepcion` registra y cancela citas; `medico` cierra citas, escribe notas y consulta historiales; `admin` administra personas. | 403 en WF-01, WF-07, WF-08 y WF-09 |
+| 2b | Autorización por rol: `recepcion` registra y cancela citas, y consulta las citas del día y la lista de espera; `medico` cierra citas, escribe notas, consulta historiales y su agenda; `admin` administra personas y consulta su lista. | 403 en WF-01, WF-07, WF-08, WF-09 y WF-10 |
 | 2c | Identidad de la persona en el token: cada médico y cada recepcionista tiene su propio token. La firma de la nota clínica sale del token y no puede falsificarse desde la petición. | Médico 1 rechazado y médico 2 aceptado sobre la misma cita |
 | 3 | Cifrado en reposo con AES-256-GCM de DPI, teléfono, diagnóstico e indicaciones. La clave reside en variable de entorno. | Valores `iv:texto:etiqueta` en la base; descifrado en WF-08 |
 | 4 | Bitácora de auditoría encadenada por hash SHA-256, que registra altas, cambios, lecturas y operaciones de administración. | El verificador detecta una cadena alterada |
-| 4b | Auditoría de lectura: cada consulta del historial clínico queda registrada, incluso si no devuelve notas. | Registros `select` en la bitácora |
+| 4b | Auditoría de acceso: cada consulta del historial clínico queda registrada, incluso si no devuelve notas, y también cada inicio de sesión. | Registros `select` en la bitácora |
 | 5 | Validación estricta de entradas, contraste contra el catálogo de médicos activos y enmascaramiento del DPI en respuestas y registros. | 400 con el detalle de cada campo |
 | 6 | Consultas parametrizadas en todos los nodos Postgres que reciben valores, con formato de lista en los que reciben texto libre. | Apellido con apóstrofe y textos con comas guardados íntegros |
-| 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08 y WF-09 no guardan ejecuciones exitosas ni manuales. | La pestaña Executions queda vacía tras una consulta |
+| 7 | Historial de n8n sin datos sensibles: WF-01, WF-07, WF-08, WF-09 y WF-10 no guardan ejecuciones exitosas ni manuales. | La pestaña Executions queda vacía tras una consulta |
 
 ### 8.1 La bitácora encadenada
 
@@ -623,7 +670,7 @@ La comprobación se ejecuta con `./scripts/verificar.sh`, que recorre la cadena 
 
 ### 8.2 Consultas parametrizadas
 
-Los treinta y tres nodos Postgres que reciben valores emplean *Query Parameters* con marcadores `$1`, `$2` en lugar de interpolar las expresiones dentro de la cadena SQL. La consulta y los datos viajan por caminos distintos, de modo que el motor nunca interpreta un dato como instrucción.
+Los treinta y siete nodos Postgres que reciben valores emplean *Query Parameters* con marcadores `$1`, `$2` en lugar de interpolar las expresiones dentro de la cadena SQL. La consulta y los datos viajan por caminos distintos, de modo que el motor nunca interpreta un dato como instrucción.
 
 | Flujo | Nodos parametrizados | Con formato de lista |
 |---|:-:|:-:|
@@ -637,6 +684,7 @@ Los treinta y tres nodos Postgres que reciben valores emplean *Query Parameters*
 | WF-07 | 4 | 1 |
 | WF-08 | 4 | 0 |
 | WF-09 | 10 | 9 |
+| WF-10 | 4 | 0 |
 
 **Dos formatos de parámetros.** n8n acepta los parámetros como texto separado por comas, `{{ $json.a }}, {{ $json.b }}`, o como una lista en una sola expresión, `{{ [ $json.a, $json.b ] }}`. En el primer formato, n8n une los valores en un texto y después lo corta en cada coma, incluidas las que vienen dentro de un dato. Por eso los nodos que reciben texto libre —un nombre, un motivo, un mensaje de error— usan la lista. Los que solo reciben identificadores, fechas, horas, números o hashes, que no pueden contener comas, conservan el formato original. La sección 12.22 documenta cómo se descubrió.
 
@@ -649,6 +697,7 @@ La sección 12.5 documenta cómo se demostró que la interpolación era explotab
 - **Publicación restringida a `127.0.0.1`.** Ningún servicio queda alcanzable desde otros equipos de la red, y Gotenberg ni siquiera publica puerto.
 - **Enmascaramiento del DPI** antes de devolverlo en la respuesta o registrarlo en la bitácora, con el formato `*********0101`.
 - **Minimización de datos en el correo:** las notificaciones al paciente no transportan datos identificativos ni clínicos, y no salen del entorno local. Ningún flujo envía información clínica por correo.
+- **Consultas con lo mínimo:** WF-10 entrega a la web solo nombres, horarios y estados, nunca datos cifrados ni de contacto.
 - **Datos personales fuera de la bitácora:** las operaciones sobre pacientes registran su identificador, nunca su nombre.
 - **Custodia de la credencial SMTP de Gmail.** El nodo Send Email no admite expresiones en el campo de contraseña, de modo que la contraseña de aplicación reside en el almacén interno de n8n, cifrada con `N8N_ENCRYPTION_KEY`. Pasarla como variable de entorno la expondría en `docker inspect` y en `printenv` dentro del contenedor, de modo que el almacén es la ubicación más segura disponible.
 - **Tokens nunca visibles en la terminal.** Las pruebas que devuelven un token lo enmascaran antes de mostrarlo, y la rotación de un token de uso diario lo escribe directamente en el `.env` sin imprimirlo (sección 8.4, incidente 3).
@@ -994,7 +1043,7 @@ El README documenta cada caso con su comando ejecutable. Las fechas de los ejemp
 
 ### 11.10 Pruebas unitarias, simulación y cobertura
 
-Los cincuenta y siete nodos Code del sistema se probaron de forma unitaria con Jest, aplicando el equivalente de lo visto en el curso con JUnit, Mockito y JaCoCo.
+Los cincuenta y siete nodos Code de WF-00 a WF-09 se probaron de forma unitaria con Jest, aplicando el equivalente de lo visto en el curso con JUnit, Mockito y JaCoCo.
 
 | Tipo de prueba | Equivalente en el curso | Resultado |
 |---|:-:|---|
@@ -1006,9 +1055,32 @@ Las pruebas detectaron tres defectos que ninguno de los casos ejecutados contra 
 
 Antes de escribir las pruebas, su preparación ya había producido un resultado: al recopilar en un solo archivo el código de los nodos Code, aparecieron los defectos 12.11 a 12.17.
 
-Las pruebas de integración contra los webhooks y la base reales quedan como trabajo futuro (sección 16.2).
+Los doce nodos Code de WF-10 todavía no tienen pruebas unitarias; sus casos se verificaron contra el endpoint (sección 11.11). Esas pruebas y las de integración contra los webhooks y la base reales quedan como trabajo futuro (sección 16.2).
 
 El detalle de cada nodo, sus casos de prueba y las capturas de cada ejecución se encuentran en el documento de pruebas, `docs/documento-pruebas.pdf`.
+
+### 11.11 Consultas para la aplicación web (WF-10)
+
+| Prueba | Resultado |
+|---|:-:|
+| `sesion` con administrador, recepción y médico | 200, con rol y nombre real; la especialidad solo para el médico |
+| Sin token, o con el token genérico desactivado | 401, con el mismo mensaje |
+| Consulta inexistente | 400 |
+| `agenda` del médico 1 en una fecha con citas | 200, cuatro citas ordenadas, en hora local |
+| `agenda` sin fecha | 200, la fecha de hoy y la lista vacía |
+| `agenda` con el token de recepción | 403 |
+| `agenda` con la fecha `2026-02-30` | 400, la fecha no existe en el calendario |
+| `citas` con recepción, el mismo día | 200, ocho citas de los dos médicos de Medicina General |
+| `citas` con el token de un médico | 403 |
+| `citas` con la fecha `21/10/2026` | 400, formato incorrecto |
+| `lista_espera` con recepción | 200, en el orden de WF-04: una prioridad 3 antes que las de prioridad 5 de su misma fecha |
+| `lista_espera` con el token de un médico | 403 |
+| `personas` con administrador | 200, tres listas con el estado de cada persona |
+| `personas` con recepción | 403 |
+| Bitácora tras tres inicios de sesión | Cadena íntegra |
+| `agenda` por la URL de producción, tras publicar | 200 |
+
+Las ocho citas del caso de `citas` corresponden a un miércoles: dos médicos de Medicina General con cuatro cupos cada uno, el mismo resultado del caso de lista de espera de la sección 11.2.
 
 ---
 
@@ -1277,6 +1349,9 @@ Las decisiones siguientes no surgen de un requisito escrito sino del análisis d
 | **Se libera la preferencia de médico en las solicitudes pendientes** | WF-02 nunca les encontraría cupo con un médico inactivo. Se conserva la especialidad pedida. |
 | **Una sola sentencia y un solo eslabón por operación de administración** | La atomicidad la garantiza PostgreSQL, no la secuencia de nodos (sección 7, WF-09). |
 | **Los correos van en una rama aparte de la respuesta** | Si no hay a quién avisar, la rama no se ejecuta y la respuesta al administrador no depende de ella. |
+| **Un solo endpoint para todas las consultas** | Un Switch reparte las cinco consultas, como WF-09 reparte sus operaciones. La autenticación se escribe una vez y no cinco. |
+| **La web no lee la base directamente** | Toda lectura pasa por WF-10, con token, rol y bitácora. Una conexión propia de la web a PostgreSQL sería una segunda puerta que se salta las diez capas. |
+| **Solo se audita el inicio de sesión** | El historial clínico ya se audita en WF-08. La agenda, las citas y las listas no contienen información clínica, solo horarios, nombres y estados. |
 
 ---
 
@@ -1302,7 +1377,8 @@ ProyectoSIGAC/
 │   ├── WF-06_reporte.json
 │   ├── WF-07_nota_clinica.json
 │   ├── WF-08_historial_clinico.json
-│   └── WF-09_administracion.json
+│   ├── WF-09_administracion.json
+│   └── WF-10_consultas.json
 ├── scripts/
 │   ├── verificar_cadena.js       Validador de la bitácora encadenada
 │   └── verificar.sh
@@ -1347,7 +1423,7 @@ La segunda capa es propia de n8n 2.x, que separa el borrador del flujo publicado
 |:-:|---|---|
 | 1 | n8n ejecutándose en entorno local, ideal con Docker | Cuatro contenedores orquestados con Compose |
 | 2 | Persistencia local de datos | PostgreSQL 16, doce tablas |
-| 3 | Mínimo tres workflows: ingesta, procesamiento y salida | Diez flujos: WF-00 a WF-09 |
+| 3 | Mínimo tres workflows: ingesta, procesamiento y salida | Once flujos: WF-00 a WF-10 |
 | 4 | Al menos seis nodos distintos | Doce tipos de nodo |
 | 5 | Manejo de errores: Error Trigger y registro de errores | WF-00, verificado con fallos reales de cinco tipos |
 | 6 | Evidencia de pruebas con entradas válidas e inválidas | Sección 11, organizada por fases |
@@ -1373,22 +1449,23 @@ Dos situaciones se identificaron y no se han corregido. Se declaran para que no 
 
 Pruebas contra los webhooks y la base reales: los caminos 401, 403, 400, 404, 409 y de éxito de cada endpoint, un error provocado que aparezca en `log_errores`, el recorrido completo desde la solicitud hasta el expediente, y la cadena de la bitácora íntegra al final. Las pruebas unitarias verifican la lógica de cada nodo; estas verificarían que los nodos funcionan juntos.
 
+Quedan además pendientes las pruebas unitarias de los doce nodos Code de WF-10, con la misma estructura que las de los demás flujos.
+
 ### 16.3 Trabajo futuro: operaciones de recepción
 
-Las operaciones de recepción se planifican como cuatro flujos:
+Las consultas de recepción ya existen en WF-10. Las operaciones que faltan se planifican como tres flujos:
 
 | Flujo | Propósito |
 |---|---|
-| WF-10 | Consultar huecos libres de una fecha |
-| WF-11 | Agendar directo con hora fija |
-| WF-12 | Reprogramar fecha y hora, con el mismo médico |
-| WF-13 | Consultar citas, pacientes y lista de espera |
+| WF-11 | Consultar huecos libres de una fecha |
+| WF-12 | Agendar directo con hora fija |
+| WF-13 | Reprogramar fecha y hora, con el mismo médico |
 
 La consulta de huecos puede reutilizar la lógica de `Busca cupo`, que ya devuelve las horas ocupadas por franja.
 
 ### 16.4 Siguiente fase: aplicación web
 
-La aplicación web es la siguiente fase del proyecto, solicitada por el catedrático. Tendrá pantallas de recepción (panel, nueva solicitud, calendario, listado y detalle de citas, reprogramación y lista de espera) y de médico (agenda del día, historial, registro de nota y cierre de cita), consumiendo los mismos endpoints. Existen tres mockups en Figma con la paleta acordada (`#122620`, `#FAF6EC` y `#1F7A5C`).
+La aplicación web es la siguiente fase del proyecto, solicitada por el catedrático. Tendrá pantallas de recepción (panel, nueva solicitud, calendario, listado y detalle de citas, reprogramación y lista de espera) y de médico (agenda del día, historial, registro de nota y cierre de cita), consumiendo los mismos endpoints, más WF-10 para las listas que cada pantalla muestra. Existen tres mockups en Figma con la paleta acordada (`#122620`, `#FAF6EC` y `#1F7A5C`).
 
 ---
 
@@ -1398,11 +1475,11 @@ La rúbrica de la sección 11 de la guía asigna quince puntos en modalidad indi
 
 | Criterio evaluado | Pts. | Elemento que lo cubre |
 |---|:-:|---|
-| Que el proceso automatizado funcione y resuelva el problema | 4 | Diez flujos operativos y doce tipos de nodo, sobre un mínimo exigido de tres flujos y seis nodos; ciclo completo desde la solicitud hasta el historial clínico, y administración de personas |
+| Que el proceso automatizado funcione y resuelva el problema | 4 | Once flujos operativos y doce tipos de nodo, sobre un mínimo exigido de tres flujos y seis nodos; ciclo completo desde la solicitud hasta el historial clínico, administración de personas y consultas para la aplicación web |
 | Buen diseño técnico | 3 | Arquitectura en contenedores con publicación restringida, modelo de doce tablas con restricciones declaradas en la base, operaciones atómicas en una sola sentencia y manejo de errores centralizado |
 | Ciberseguridad | 3 | Diez capas que cubren validación, control de acceso con identidad por persona, cifrado y auditoría de lectura, con los incidentes del desarrollo documentados y remediados |
 | Manejo de errores y de los datos | 2 | WF-00, tabla `log_errores`, bitácora encadenada por hash, baja lógica sin pérdida de historial y consistencia verificada tras operaciones repetidas |
-| Documentación clara | 2 | Este documento, con veinticinco defectos y veinticuatro decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
+| Documentación clara | 2 | Este documento, con veinticinco defectos y veintisiete decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
 | Evidencia y que se pueda reproducir | 1 | Casos de prueba por fase con sus comandos; 857 pruebas unitarias que se ejecutan sin levantar el sistema; el entorno completo se levanta con un solo comando |
 | **TOTAL** | **15** | |
 
@@ -1414,7 +1491,7 @@ Al ser modalidad individual, aplican únicamente los cuatro primeros.
 
 | Entregable | Formato | Estado |
 |---|:-:|---|
-| Repositorio Git con README, docker-compose, `workflows/` y `docs/` | GitHub | Completo; README por actualizar |
+| Repositorio Git con README, docker-compose, `workflows/` y `docs/` | GitHub | Completo |
 | Documento técnico | Word o PDF | Este documento |
-| Diagrama de arquitectura y del flujo principal | Imagen o PDF | En `docs/uml/`, por actualizar |
+| Diagrama de arquitectura y del flujo principal | Imagen o PDF | En `docs/uml/`; falta agregar WF-10 |
 | Video de demostración de 5 a 8 minutos, con presencia en cámara | Enlace de Drive | Pendiente |
