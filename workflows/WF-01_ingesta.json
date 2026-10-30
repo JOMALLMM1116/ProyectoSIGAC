@@ -229,7 +229,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- cambio 5: el do update solo ocurre si el paciente esta activo.\n-- si existe pero esta inactivo o dado de baja, la clausula where\n-- impide la actualizacion, p no devuelve fila y la solicitud no se\n-- inserta. el nodo sale vacio y ¿Paciente habilitado? lo rechaza.\nwith p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values ($1, $2, $3, $4, $5, $6::date, $7)\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  where paciente.activo\n  returning id\n)\ninsert into solicitud_cita (\n  id_paciente, tipo_consulta, motivo, fecha_preferida,\n  franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado\n)\nselect p.id, $8, $9, $10::date,\n       $11,\n       nullif($12, 'null')::time,\n       nullif($13, 'null'),\n       nullif($14, 'null')::int\nfrom p\nreturning id as id_solicitud, id_paciente, estado,\n          franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado;",
+        "query": "-- cambio 5: el do update solo ocurre si el paciente esta activo.\n-- si existe pero esta inactivo o dado de baja, la clausula where\n-- impide la actualizacion, p no devuelve fila y la solicitud no se\n-- inserta. el nodo sale vacio y ¿Paciente habilitado? lo rechaza.\n-- cambio 6: $14 se convierte a texto antes del nullif. n8n escribe\n-- el id del medico como numero, y nullif(8, 'null') fallaba al\n-- convertir 'null' a entero.\nwith p as (\n  insert into paciente (dpi_cifrado, dpi_huella, nombre, apellido, telefono_cifrado, fecha_nacimiento, correo)\n  values ($1, $2, $3, $4, $5, $6::date, $7)\n  on conflict (dpi_huella) do update set correo = excluded.correo\n  where paciente.activo\n  returning id\n)\ninsert into solicitud_cita (\n  id_paciente, tipo_consulta, motivo, fecha_preferida,\n  franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado\n)\nselect p.id, $8, $9, $10::date,\n       $11,\n       nullif($12, 'null')::time,\n       nullif($13, 'null'),\n       nullif($14::text, 'null')::int\nfrom p\nreturning id as id_solicitud, id_paciente, estado,\n          franja_preferida, hora_solicitada, especialidad_solicitada, id_medico_solicitado;",
         "options": {
           "queryReplacement": "={{ [ $json.dpi_cifrado, $json.dpi_huella, $json.datos.nombre, $json.datos.apellido, $json.telefono_cifrado, $json.datos.fecha_nacimiento, $json.datos.correo, $json.datos.tipo_consulta, $json.datos.motivo ?? null, $json.datos.fecha_preferida, $json.franja_preferida, $json.hora_solicitada ?? 'null', $json.especialidad_solicitada ?? 'null', $json.id_medico_solicitado ?? 'null' ] }}"
         }
@@ -604,7 +604,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": false
   },
-  "versionId": "6c84693f-3345-4236-93e8-8d8e796f5e74",
+  "versionId": "a67d3054-a9ef-46a2-8841-59c803e9ad8f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e49557919f151668339b1530e29f6193e8e67abd3c71a79071e56612b876d556"

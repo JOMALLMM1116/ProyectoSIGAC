@@ -158,14 +158,42 @@
 
   campoBuscar.addEventListener('input', pintarPacientes);
 
+  // Especialidades que ya existen, tomadas de los médicos activos e inactivos
+  function especialidadesExistentes() {
+    return [...new Set(datos.medicos.map(m => m.especialidad).filter(Boolean))].sort();
+  }
+
   function llenarEspecialidades() {
     const lista = document.getElementById('lista-especialidades');
-    const unicas = [...new Set(datos.medicos.map(m => m.especialidad).filter(Boolean))].sort();
-    lista.replaceChildren(...unicas.map(e => {
+    lista.replaceChildren(...especialidadesExistentes().map(e => {
       const opcion = document.createElement('option');
       opcion.value = e;
       return opcion;
     }));
+  }
+
+  // Forma comparable: sin tildes, sin mayúsculas y con un solo espacio
+  function normalizar(texto) {
+    return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  // Devuelve la especialidad que se debe enviar, o null si el
+  // administrador decide no crear una nueva.
+  //   Ya existe (aunque cambien mayúsculas, tildes o espacios) → la del catálogo
+  //   No existe → se pide confirmación, para atrapar errores de escritura
+  function resolverEspecialidad(escrita) {
+    const existentes = especialidadesExistentes();
+    const igual = existentes.find(e => normalizar(e) === normalizar(escrita));
+    if (igual) {
+      return igual;
+    }
+    const crear = window.confirm(
+      'La especialidad «' + escrita + '» no existe.\n\n'
+      + 'Las que existen son: ' + existentes.join(', ') + '.\n\n'
+      + '¿Crear «' + escrita + '» como especialidad nueva?'
+    );
+    return crear ? escrita : null;
   }
 
   // --- Operaciones de WF-09 ---
@@ -240,9 +268,23 @@
   const formularioMedico = document.getElementById('formulario-medico');
   formularioMedico.addEventListener('submit', evento => {
     evento.preventDefault();
+    const campoEspecialidad = document.getElementById('medico-especialidad');
+    const escrita = campoEspecialidad.value.trim();
+
+    let especialidad = escrita;
+    if (escrita) {
+      especialidad = resolverEspecialidad(escrita);
+      if (especialidad === null) {
+        campoEspecialidad.focus();
+        campoEspecialidad.select();
+        return;
+      }
+      campoEspecialidad.value = especialidad;
+    }
+
     agregar('medico', {
       nombre: document.getElementById('medico-nombre').value.trim(),
-      especialidad: document.getElementById('medico-especialidad').value.trim(),
+      especialidad,
       colegiado: document.getElementById('medico-colegiado').value.trim()
     }, formularioMedico);
   });
