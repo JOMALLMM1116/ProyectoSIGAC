@@ -681,6 +681,8 @@ La aplicación web es un conjunto de páginas HTML, CSS y JavaScript sin framewo
 
 La prioridad se muestra traducida: 1 y 2 como **Alta**, 3 como **Media**, y 4 y 5 como **Baja**, con el mismo orden que usa WF-04. El rango de citas se arma pidiendo a WF-10 cada día del rango, porque la consulta responde un día a la vez; por eso se limita a 31 días. La **actividad de la sesión** vive solo en la memoria de la página y se borra al recargar: no se guarda en ningún lugar.
 
+**La especialidad de un médico nuevo.** Al agregar un médico, la pantalla de administración compara la especialidad escrita con las que ya existen, sin distinguir mayúsculas, tildes ni espacios de más. Si coincide, usa la forma del catálogo. Si no existe, pide confirmación antes de crearla. Así un error de escritura, como «Mecina General», no se convierte en una especialidad con la que ninguna solicitud coincidiría, y crear especialidades sigue siendo posible.
+
 **Validación por campo, como ayuda.** El formulario de solicitud revisa cada campo antes de enviar y marca en rojo el que falla, con su mensaje debajo. Es una ayuda para quien escribe, no un control de seguridad: WF-01 sigue validando cada solicitud, y sus rechazos se muestran arriba del formulario.
 
 **Íconos e ilustración.** Los íconos son Material Symbols de Google, con licencia Apache 2.0. No se cargan desde los servidores de Google: el script `scripts/construir_iconos.sh` los descarga del repositorio oficial y los reúne en un solo archivo, `web/img/iconos.svg`, junto a su licencia. Así la política de seguridad de contenido sigue cerrada a servidores externos, la web funciona sin Internet y ningún tercero sabe cuándo se usa. La ilustración de la pantalla de inicio, `web/img/clinica.svg`, es original del proyecto y usa la paleta de la web. Los íconos son decorativos y se ocultan a los lectores de pantalla: el texto de cada botón ya dice lo que hace.
@@ -1154,13 +1156,15 @@ Las ocho citas del caso de `citas` corresponden a un miércoles: dos médicos de
 | Recepción: panel del día, con las cuatro tarjetas y la lista de espera resumida | Conteos coincidentes con las consultas de WF-10 |
 | Recepción: citas en un rango de quince días, con filtros y paginación | Las doce citas del rango, con sus estados y la cancelación solo en las confirmadas |
 | Recepción: solicitud con datos inválidos | Cada campo marcado en rojo con su mensaje, sin enviar nada a WF-01 |
+| Administración: especialidad que no existe | Se pide confirmación; con Cancelar no se envía nada |
+| Administración: `pediatría` en minúsculas y con tilde | Se corrige sola a `Pediatria`, sin pregunta |
 | Bitácora tras todas las pruebas de la web | Cadena íntegra, 109 registros |
 
 ---
 
 ## 12. Defectos detectados y corregidos
 
-Durante el desarrollo se detectaron veinticinco defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, o mientras el código no se leyó completo, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
+Durante el desarrollo se detectaron veintiséis defectos. Ninguno era visible mientras el sistema no se sometió a las operaciones que los provocan, o mientras el código no se leyó completo, lo que ilustra por qué las pruebas se diseñan sobre escenarios y no sobre funciones aisladas.
 
 | # | Flujo o tabla | Defecto | Cómo se detectó |
 |:-:|---|---|---|
@@ -1189,6 +1193,7 @@ Durante el desarrollo se detectaron veinticinco defectos. Ninguno era visible mi
 | 12.23 | WF-01 | El valor `true` se aceptaba como el médico 1 | Pruebas unitarias |
 | 12.24 | WF-07, WF-08, WF-09 | El valor `true` se aceptaba como el identificador 1 | Pruebas unitarias |
 | 12.25 | WF-02, WF-09 | Citas a horas no múltiplo de treinta minutos podían traslaparse | Pruebas unitarias |
+| 12.26 | WF-01 | Una solicitud que pedía un médico por su número no se registraba | Preparación de las capturas |
 
 ### 12.1 Restricción de unicidad que no distinguía citas canceladas
 
@@ -1391,6 +1396,18 @@ Los tres aparecieron al ejecutar las pruebas unitarias de la sección 11.10. Nin
 
 **Observación.** Las pruebas no encontraron estos defectos ejecutando el código, sino eligiendo entradas en los bordes de cada regla: un booleano donde se espera un número, una hora que no cae en la cuadrícula de media hora.
 
+### 12.26 · Una solicitud que pedía un médico por su número no se registraba
+
+**Síntoma.** Al preparar las capturas de este documento, toda solicitud con `id_medico_solicitado` respondía HTTP 200 sin cuerpo. La solicitud no se registraba, el error quedaba en `log_errores` con el mensaje `invalid input syntax for type integer: "null"` y WF-00 enviaba la alerta al administrador. Las solicitudes sin médico concreto funcionaban con normalidad. El mismo fallo afectaba al campo «Número de médico» del formulario de recepción.
+
+**Causa.** n8n no envía los parámetros por separado: los escribe dentro del SQL según su tipo en JavaScript, un texto entre comillas y un número sin ellas. En `Guarda solicitud`, la columna del médico se resolvía con `nullif($14, 'null')::int`. Sin médico, el parámetro es el texto `'null'` y la expresión queda `nullif('null', 'null')`, que da `NULL`. Con médico, `Valida datos` lo entrega como número desde el defecto 12.23, y la expresión queda `nullif(8, 'null')`: PostgreSQL compara un entero con el texto `'null'`, intenta convertirlo a entero y falla.
+
+**Corrección.** El parámetro se convierte a texto antes de comparar: `nullif($14::text, 'null')::int`. Los dos casos quedan bien: sin médico, `NULL`; con médico, el número. La consulta sigue siendo parametrizada y los Query Parameters no cambiaron.
+
+**Verificación.** Una solicitud con el médico 4 y Medicina General respondió 201, guardó `id_medico_solicitado` en 4, y WF-02 la asignó a ese médico. Una solicitud sin médico, enviada a continuación, respondió 201 y se repartió por carga. No se registraron errores nuevos.
+
+**Observación.** Es una regresión del defecto 12.22. Antes de esa corrección, los parámetros viajaban unidos en un solo texto, y todo llegaba como texto. Al pasarlos a una lista, el número del médico empezó a viajar como número. Las otras dos columnas opcionales, la hora y la especialidad, son siempre texto, por eso nunca fallaron. Ninguna prueba posterior al 12.22 pidió un médico por su número. En la misma revisión se descartó una sospecha: un médico recién agregado no recibió las primeras citas, pero tenía su horario completo; con la carga del día empatada, WF-02 asigna al médico de número más bajo, y es lo esperado.
+
 ---
 
 ## 13. Decisiones de diseño
@@ -1433,6 +1450,7 @@ Las decisiones siguientes no surgen de un requisito escrito sino del análisis d
 | **La validación de la página solo ayuda** | La única validación que cuenta es la de WF-01: la de la página puede saltarse, la del flujo no. |
 | **La actividad de la sesión, solo en memoria** | Mostrar la bitácora a recepción exigiría una consulta nueva; lo que la persona hizo en la sesión se conoce sin preguntar al servidor y no se guarda en ningún lugar. |
 | **Las citas por rango, hasta 31 días** | WF-10 responde un día por consulta; el límite evita cientos de peticiones por un rango demasiado largo. |
+| **Confirmar las especialidades nuevas** | Crear especialidades es necesario, pero un error de escritura crearía una que ninguna solicitud alcanza; la confirmación separa los dos casos sin cambiar WF-09. |
 | **Solo se audita el inicio de sesión** | El historial clínico ya se audita en WF-08. La agenda, las citas y las listas no contienen información clínica, solo horarios, nombres y estados. |
 
 ---
@@ -1580,7 +1598,7 @@ La rúbrica de la sección 11 de la guía asigna quince puntos en modalidad indi
 | Buen diseño técnico | 3 | Arquitectura en cinco contenedores con publicación restringida y una web que solo llega a n8n a través de Nginx, modelo de doce tablas con restricciones declaradas en la base, operaciones atómicas en una sola sentencia y manejo de errores centralizado |
 | Ciberseguridad | 3 | Diez capas que cubren validación, control de acceso con identidad por persona, cifrado y auditoría de lectura, con los incidentes del desarrollo documentados y remediados |
 | Manejo de errores y de los datos | 2 | WF-00, tabla `log_errores`, bitácora encadenada por hash, baja lógica sin pérdida de historial y consistencia verificada tras operaciones repetidas |
-| Documentación clara | 2 | Este documento, con veinticinco defectos y treinta y cinco decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
+| Documentación clara | 2 | Este documento, con veintiséis defectos y treinta y seis decisiones de diseño justificadas; el documento de pruebas, y el README de instalación, uso y pruebas |
 | Evidencia y que se pueda reproducir | 1 | Casos de prueba por fase con sus comandos; 857 pruebas unitarias que se ejecutan sin levantar el sistema; el entorno completo se levanta con un solo comando |
 | **TOTAL** | **15** | |
 

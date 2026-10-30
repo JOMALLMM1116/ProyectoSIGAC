@@ -271,7 +271,7 @@ el del administrador. La web consulta quién es y abre la pantalla de su rol:
 |---|---|---|
 | medico | Mi agenda | Ver sus citas por fecha; en un panel lateral, consultar el historial clínico, escribir la nota y marcar la cita como atendida o ausente |
 | recepcion | Recepción | Barra lateral con cuatro secciones: **Panel** (resumen del día en cuatro tarjetas, agenda de hoy con buscador, lista de espera resumida y actividad de la sesión), **Nueva solicitud** (validación de cada campo antes de enviar), **Citas** (rango de hasta 31 días, filtros por estado, médico y tipo, paginación y cancelación) y **Lista de espera** |
-| admin | Personas | Ver médicos, recepcionistas y pacientes; agregarlos, desactivarlos, darlos de baja y reactivarlos |
+| admin | Personas | Ver médicos, recepcionistas y pacientes; agregarlos, desactivarlos, darlos de baja y reactivarlos. Al agregar un médico, la especialidad se compara con las que ya existen: si coincide aunque cambien las mayúsculas o las tildes, se usa la del catálogo, y si no existe, la web pide confirmación antes de crear una nueva |
 
 - El token se guarda solo mientras la pestaña está abierta (`sessionStorage`):
   al cerrarla hay que volver a iniciar sesión. **Cerrar sesión** lo borra.
@@ -286,6 +286,9 @@ el del administrador. La web consulta quién es y abre la pantalla de su rol:
   muestran arriba del formulario.
 - La **actividad de la sesión** vive solo en la memoria de la página: muestra lo
   que la recepcionista registró o canceló desde que entró, y se borra al recargar.
+- La confirmación de una especialidad nueva evita que un error de escritura
+  (por ejemplo, «Mecina General») se convierta en una especialidad distinta, con
+  la que ninguna solicitud coincidiría. Crear especialidades sigue siendo posible.
 
 ### 4.8 Íconos de la aplicación web
 
